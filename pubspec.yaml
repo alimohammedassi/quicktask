@@ -1,0 +1,76 @@
+name: quicktask
+description: "Voice-driven task manager synced to Google Calendar"
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Firebase
+  firebase_core: ^3.0.0
+  firebase_auth: ^5.0.0
+  cloud_firestore: ^5.0.0
+
+  # Local Database
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Google Sign-In & Calendar
+  google_sign_in: ^6.2.1
+  googleapis: ^12.0.0
+  googleapis_auth: ^1.6.0
+  http: ^1.2.1
+  google_fonts: ^6.2.1
+
+  # Voice Input
+  speech_to_text: ^7.0.0
+  permission_handler: ^11.3.1
+  flutter_tts: ^4.0.2
+
+  # Notifications
+  flutter_local_notifications: ^17.2.4
+  timezone: ^0.9.4
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+
+  # Navigation
+  go_router: ^14.0.0
+
+  # Utilities
+  uuid: ^4.4.0
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  flutter_native_splash: ^2.4.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+
+flutter_native_splash:
+  image: assets/logo.png
+  color: "#0D0D14"
+  branding: assets/logo.png
+  branding_mode: bottom
+  android_12:
+    image: assets/logo.png
+    color: "#0D0D14"
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/logo.png"
+  min_sdk_android: 21

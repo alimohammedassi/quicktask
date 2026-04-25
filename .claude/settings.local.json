@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze *)",
+      "Bash(git stash *)",
+      "Bash(flutter run *)",
+      "Bash(flutter build *)"
+    ]
+  },
+  "disabledMcpjsonServers": [
+    "flutter-skill"
+  ]
+}

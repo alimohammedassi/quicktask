@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed-dim": "#d2bbff",
+                        "secondary-container": "#8a4cfc",
+                        "outline-variant": "#c8c5d0",
+                        "on-secondary-fixed-variant": "#5a00c6",
+                        "surface-container-highest": "#e1e3e4",
+                        "inverse-on-surface": "#f0f1f2",
+                        "primary": "#070235",
+                        "on-secondary": "#ffffff",
+                        "secondary": "#712ae2",
+                        "on-tertiary-fixed-variant": "#004395",
+                        "on-tertiary-container": "#4086fa",
+                        "surface-variant": "#e1e3e4",
+                        "tertiary-fixed": "#d8e2ff",
+                        "primary-fixed-dim": "#c4c1fb",
+                        "on-primary-container": "#8683ba",
+                        "tertiary": "#000a22",
+                        "on-error": "#ffffff",
+                        "on-surface": "#191c1d",
+                        "on-tertiary-fixed": "#001a42",
+                        "outline": "#787680",
+                        "on-primary-fixed-variant": "#444173",
+                        "on-primary-fixed": "#181445",
+                        "on-surface-variant": "#47464f",
+                        "surface-container": "#edeeef",
+                        "surface-tint": "#5b598c",
+                        "tertiary-container": "#00204d",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "background": "#f8f9fa",
+                        "tertiary-fixed-dim": "#adc6ff",
+                        "surface": "#f8f9fa",
+                        "on-error-container": "#93000a",
+                        "surface-container-high": "#e7e8e9",
+                        "secondary-fixed": "#eaddff",
+                        "surface-container-low": "#f3f4f5",
+                        "on-secondary-container": "#fffbff",
+                        "surface-dim": "#d9dadb",
+                        "surface-bright": "#f8f9fa",
+                        "primary-fixed": "#e3dfff",
+                        "error-container": "#ffdad6",
+                        "error": "#ba1a1a",
+                        "on-background": "#191c1d",
+                        "inverse-surface": "#2e3132",
+                        "primary-container": "#1e1b4b",
+                        "inverse-primary": "#c4c1fb",
+                        "on-secondary-fixed": "#25005a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "stack-md": "16px",
+                        "unit": "8px",
+                        "stack-lg": "32px",
+                        "stack-sm": "8px",
+                        "margin-page": "32px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "label-xs": ["Inter"],
+                        "h3": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "h2": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "h1": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                        "label-xs": ["12px", {"lineHeight": "1", "letterSpacing": "0.04em", "fontWeight": "600"}],
+                        "h3": ["24px", {"lineHeight": "1.4", "letterSpacing": "0", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400"}],
+                        "h2": ["30px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "label-sm": ["14px", {"lineHeight": "1", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                        "h1": ["40px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .voice-pulse {
+            box-shadow: 0 0 0 0 rgba(113, 42, 226, 0.7);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(113, 42, 226, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(113, 42, 226, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(113, 42, 226, 0); }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background font-body-md text-on-background min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 bg-white dark:bg-slate-950 border-b border-gray-100 dark:border-slate-800 shadow-sm dark:shadow-none flex justify-between items-center px-6 py-3">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center overflow-hidden border-2 border-primary-container">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="Professional headshot of a friendly young man in a blue shirt with warm lighting and a soft grey background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDCV_zqRt7O4H4shaN7jDsRqpo9pD4ra-k6uyi-ftlh4UJs6-PjQrtRa9a2hN4ySxWI3Bv_WITW0FCKPQ3YVFyE3w8D8BduW8DLfxxmn4EFnr3BC9cKOCZNS83X67EUpq35m6rYbPnQIJG_dpRJ0mJRQnN_57PUwU9SUdP2ULapxfEGcnjxJw16qxFGIyv6_zf2my5nBWaI0Q88IoGCnrFQyh0KOeda0ulHc3KmY4Oy_NaAt92AuutAB79fgwgeUKLFXZAWJ82-nJU"/>
+</div>
+<h1 class="text-xl font-bold text-indigo-900 dark:text-indigo-300">TaskVoice</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors active:opacity-80">
+<span class="material-symbols-outlined text-indigo-900 dark:text-indigo-400" data-icon="settings">settings</span>
+</button>
+</header>
+<main class="pt-24 pb-32 px-gutter max-w-2xl mx-auto">
+<!-- Hero Section -->
+<section class="mb-stack-lg">
+<h2 class="font-h1 text-h1 text-primary mb-2">Good morning, Julian.</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">You have 4 tasks for today.</p>
+</section>
+<!-- Bento Grid Layout for Tasks -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- Upcoming Tasks Header -->
+<div class="md:col-span-2 flex items-center justify-between mt-4">
+<h3 class="font-h3 text-h3 text-primary">Upcoming Tasks</h3>
+<span class="font-label-sm text-label-sm text-secondary font-semibold">View All</span>
+</div>
+<!-- Task Card 1: Large Asymmetric -->
+<div class="md:col-span-2 bg-white rounded-[24px] p-6 shadow-[0_8px_30px_rgb(30,27,75,0.04)] border border-gray-100 hover:shadow-lg transition-all group">
+<div class="flex justify-between items-start mb-4">
+<div class="p-3 rounded-2xl bg-primary-fixed text-primary">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+</div>
+<div class="px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant text-label-xs font-label-xs">
+                        HIGH PRIORITY
+                    </div>
+</div>
+<h4 class="font-h3 text-h3 text-primary mb-2 group-hover:text-secondary transition-colors">Team Sync at 2pm</h4>
+<div class="flex items-center gap-4 text-on-surface-variant font-label-sm">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="calendar_today">calendar_today</span>
+<span>Today</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span>
+<span>14:00 - 15:00</span>
+</div>
+</div>
+</div>
+<!-- Task Card 2 -->
+<div class="bg-white rounded-[24px] p-6 shadow-[0_8px_30px_rgb(30,27,75,0.04)] border border-gray-100 hover:border-secondary-container transition-all">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-secondary" data-icon="medical_services">medical_services</span>
+<span class="font-label-xs text-label-xs text-on-surface-variant">HEALTH</span>
+</div>
+<h4 class="font-h3 text-h3 text-primary mb-4 leading-tight">Doctor Appointment tomorrow</h4>
+<div class="flex items-center gap-2 bg-surface-container-low p-2 rounded-xl">
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="event">event</span>
+<span class="font-label-xs text-on-surface-variant">Oct 24, 09:30 AM</span>
+</div>
+</div>
+<!-- Task Card 3 -->
+<div class="bg-white rounded-[24px] p-6 shadow-[0_8px_30px_rgb(30,27,75,0.04)] border border-gray-100 hover:border-secondary-container transition-all">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-secondary" data-icon="shopping_bag">shopping_bag</span>
+<span class="font-label-xs text-label-xs text-on-surface-variant">PERSONAL</span>
+</div>
+<h4 class="font-h3 text-h3 text-primary mb-4 leading-tight">Grocery List &amp; Meal Prep</h4>
+<div class="flex items-center gap-2 bg-surface-container-low p-2 rounded-xl">
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="event">event</span>
+<span class="font-label-xs text-on-surface-variant">Today, 06:00 PM</span>
+</div>
+</div>
+<!-- Decorative Visual Element -->
+<div class="md:col-span-2 h-32 rounded-[24px] overflow-hidden relative">
+<img alt="Abstract decorative background" class="w-full h-full object-cover" data-alt="Abstract fluid background with swirling indigo and violet gradients, smooth glass-like texture, and soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWQVNn2BR9JLEOecyBAl9IYBqL_3-YPGCqj6db2Fnc0TaMimV9fbciJn11yC9eSvC43_FCon436KF6WbrD_1Sm-S6Tuhz9un9BZevsrwTdllILD_91mAjn025R-CDC-ovGIGjMnKYKO-RdRadyZIhvNgDNjDw7d01WXXIKfjS2woa5I3Jn7qts59DimIQ7pClY9gT421oMjex0wrUpHXpqprmySng5gxBu_onp6MH1IY8XY0xEixXxWkULwN9LMhgE50MrFCb8qn0"/>
+<div class="absolute inset-0 bg-gradient-to-r from-primary/60 to-transparent flex items-center px-8">
+<p class="text-white font-h3">Your voice, organized.</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action Button (Voice Action) -->
+<div class="fixed bottom-24 left-1/2 -translate-x-1/2 z-50">
+<button class="voice-pulse w-20 h-20 rounded-full bg-secondary flex items-center justify-center text-white shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300">
+<span class="material-symbols-outlined text-4xl" data-icon="mic" data-weight="fill" style="font-variation-settings: 'FILL' 1;">mic</span>
+</button>
+</div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-white/80 backdrop-blur-md border-t border-gray-100 rounded-t-2xl shadow-[0_-4px_6px_-1px_rgba(30,27,75,0.04)]">
+<!-- Tab: Tasks (Active) -->
+<a class="flex flex-col items-center justify-center text-indigo-600 relative after:content-[''] after:absolute after:-left-2 after:w-1 after:h-4 after:bg-indigo-900 after:rounded-full scale-95 active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="list_alt">list_alt</span>
+<span class="font-inter text-[12px] font-medium">Tasks</span>
+</a>
+<!-- Tab: Settings (Inactive) -->
+<a class="flex flex-col items-center justify-center text-gray-400 hover:text-indigo-600 scale-95 active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-inter text-[12px] font-medium">Settings</span>
+</a>
+</nav>
+</body></html>

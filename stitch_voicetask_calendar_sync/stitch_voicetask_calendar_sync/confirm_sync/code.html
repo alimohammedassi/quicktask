@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TaskVoice - Confirm Task</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed-dim": "#d2bbff",
+                    "secondary-container": "#8a4cfc",
+                    "outline-variant": "#c8c5d0",
+                    "on-secondary-fixed-variant": "#5a00c6",
+                    "surface-container-highest": "#e1e3e4",
+                    "inverse-on-surface": "#f0f1f2",
+                    "primary": "#070235",
+                    "on-secondary": "#ffffff",
+                    "secondary": "#712ae2",
+                    "on-tertiary-fixed-variant": "#004395",
+                    "on-tertiary-container": "#4086fa",
+                    "surface-variant": "#e1e3e4",
+                    "tertiary-fixed": "#d8e2ff",
+                    "primary-fixed-dim": "#c4c1fb",
+                    "on-primary-container": "#8683ba",
+                    "tertiary": "#000a22",
+                    "on-error": "#ffffff",
+                    "on-surface": "#191c1d",
+                    "on-tertiary-fixed": "#001a42",
+                    "outline": "#787680",
+                    "on-primary-fixed-variant": "#444173",
+                    "on-primary-fixed": "#181445",
+                    "on-surface-variant": "#47464f",
+                    "surface-container": "#edeeef",
+                    "surface-tint": "#5b598c",
+                    "tertiary-container": "#00204d",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "background": "#f8f9fa",
+                    "tertiary-fixed-dim": "#adc6ff",
+                    "surface": "#f8f9fa",
+                    "on-error-container": "#93000a",
+                    "surface-container-high": "#e7e8e9",
+                    "secondary-fixed": "#eaddff",
+                    "surface-container-low": "#f3f4f5",
+                    "on-secondary-container": "#fffbff",
+                    "surface-dim": "#d9dadb",
+                    "surface-bright": "#f8f9fa",
+                    "primary-fixed": "#e3dfff",
+                    "error-container": "#ffdad6",
+                    "error": "#ba1a1a",
+                    "on-background": "#191c1d",
+                    "inverse-surface": "#2e3132",
+                    "primary-container": "#1e1b4b",
+                    "inverse-primary": "#c4c1fb",
+                    "on-secondary-fixed": "#25005a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "24px",
+                    "stack-md": "16px",
+                    "unit": "8px",
+                    "stack-lg": "32px",
+                    "stack-sm": "8px",
+                    "margin-page": "32px"
+            },
+            "fontFamily": {
+                    "body-md": ["Inter"],
+                    "label-xs": ["Inter"],
+                    "h3": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "h2": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "h1": ["Inter"]
+            },
+            "fontSize": {
+                    "body-md": ["16px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                    "label-xs": ["12px", {"lineHeight": "1", "letterSpacing": "0.04em", "fontWeight": "600"}],
+                    "h3": ["24px", {"lineHeight": "1.4", "letterSpacing": "0", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400"}],
+                    "h2": ["30px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "label-sm": ["14px", {"lineHeight": "1", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                    "h1": ["40px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .voice-pulse {
+            box-shadow: 0 0 0 0 rgba(113, 42, 226, 0.4);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(113, 42, 226, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(113, 42, 226, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(113, 42, 226, 0); }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md min-h-screen flex flex-col items-center">
+<!-- Top Navigation (Shell Component) -->
+<header class="bg-white dark:bg-slate-950 text-indigo-900 dark:text-indigo-400 font-inter text-base font-semibold docked full-width top-0 border-b border-gray-100 dark:border-slate-800 shadow-sm dark:shadow-none flex justify-between items-center w-full px-6 py-3 fixed z-50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full overflow-hidden">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="Professional user profile avatar with soft lighting, neutral background, and approachable expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBH2U0zRAaikra6JHwyFLdZC2bJWEyPrmxyBfpYs6os9NIFQ9DVX6KEY_H_-Nsbwg55OeONl4L5-lh5MG-yLrgaZoDh7j85GJ4C1tHDQlaJfvlGAcuoYHE43HEjbNxIknpBuTojebjeECwOMrenNbFRlq5xwl-IopYcShgtWU0-LIL1HzOVtzgOCEZYyQJQExyhFXsXT9xd28LWQ5BvtSi2nTMkZaq3nV1w8qZ8APBBNY-WrRLsmPDA92tvjqoCGUVwvsYMO4sX-rA"/>
+</div>
+<span class="text-xl font-bold text-indigo-900 dark:text-indigo-300">TaskVoice</span>
+</div>
+<button class="material-symbols-outlined text-gray-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors p-2 rounded-full active:opacity-80">
+            settings
+        </button>
+</header>
+<main class="flex-1 w-full max-w-lg mt-20 px-gutter flex flex-col">
+<!-- Voice Confirmation Header Section -->
+<section class="py-stack-lg flex flex-col items-center text-center">
+<div class="w-16 h-16 bg-secondary flex items-center justify-center rounded-full voice-pulse mb-stack-md">
+<span class="material-symbols-outlined text-white text-3xl" style="font-variation-settings: 'FILL' 1;">mic</span>
+</div>
+<h1 class="font-h2 text-h2 text-primary mb-2">Parsed Successfully</h1>
+<p class="font-body-md text-on-surface-variant">Review your task details before syncing.</p>
+</section>
+<!-- Task Data Card -->
+<section class="bg-white rounded-[24px] shadow-[0_4px_20px_-4px_rgba(30,27,75,0.08)] border border-gray-100 p-6 flex flex-col gap-stack-md">
+<!-- Title Input -->
+<div class="group cursor-pointer p-4 rounded-xl hover:bg-surface-container-low transition-colors border border-transparent hover:border-gray-100">
+<label class="font-label-xs text-secondary mb-1 block">Title</label>
+<div class="flex items-center justify-between">
+<span class="font-h3 text-h3 text-primary">Lunch with Sarah</span>
+<span class="material-symbols-outlined text-gray-400 group-hover:text-secondary">edit</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<!-- Date Input -->
+<div class="group cursor-pointer p-4 rounded-xl hover:bg-surface-container-low transition-colors border border-transparent hover:border-gray-100">
+<label class="font-label-xs text-secondary mb-1 block">Date</label>
+<div class="flex items-center justify-between">
+<span class="font-body-lg text-body-lg font-semibold text-primary">Tomorrow</span>
+<span class="material-symbols-outlined text-gray-400 group-hover:text-secondary text-sm">event</span>
+</div>
+</div>
+<!-- Time Input -->
+<div class="group cursor-pointer p-4 rounded-xl hover:bg-surface-container-low transition-colors border border-transparent hover:border-gray-100">
+<label class="font-label-xs text-secondary mb-1 block">Time</label>
+<div class="flex items-center justify-between">
+<span class="font-body-lg text-body-lg font-semibold text-primary">1:00 PM</span>
+<span class="material-symbols-outlined text-gray-400 group-hover:text-secondary text-sm">schedule</span>
+</div>
+</div>
+</div>
+<!-- Sync Status Badge -->
+<div class="flex items-center justify-center pt-2">
+<div class="inline-flex items-center gap-2 px-3 py-1 bg-surface-container rounded-full">
+<span class="w-2 h-2 bg-green-500 rounded-full"></span>
+<span class="font-label-xs text-on-surface-variant">Google Calendar Sync Active</span>
+</div>
+</div>
+</section>
+<!-- Action Buttons -->
+<section class="mt-stack-lg flex flex-col gap-4 mb-24">
+<button class="w-full py-4 bg-primary text-white rounded-[16px] font-semibold text-body-lg shadow-lg hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">sync</span>
+                Sync to Calendar
+            </button>
+<button class="w-full py-4 bg-transparent text-on-surface-variant rounded-[16px] font-medium text-body-md hover:bg-surface-container-highest transition-colors active:scale-[0.98]">
+                Discard
+            </button>
+</section>
+</main>
+<!-- Bottom Navigation (Shell Component) - Simplified because this is a task-focused task-confirmation sub-page -->
+<!-- Applying "Shell Visibility & Relevance" rule: Navigation is suppressed to prioritize content canvas for task-focused Confirmation screen -->
+<footer class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-white/80 backdrop-blur-md border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(30,27,75,0.04)] md:hidden">
+<a class="flex flex-col items-center justify-center text-indigo-600 dark:text-violet-400 relative after:content-[''] after:absolute after:-left-2 after:w-1 after:h-4 after:bg-indigo-900 dark:after:bg-indigo-400 after:rounded-full" href="#">
+<span class="material-symbols-outlined">list_alt</span>
+<span class="font-inter text-[12px] font-medium">Tasks</span>
+</a>
+<a class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 hover:text-indigo-600 transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-inter text-[12px] font-medium">Settings</span>
+</a>
+</footer>
+</body></html>

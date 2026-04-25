@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "559550639683",
+    "project_id": "quicktask-a7b47",
+    "storage_bucket": "quicktask-a7b47.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:559550639683:android:ab166be89349d0d074eef6",
+        "android_client_info": {
+          "package_name": "com.example.quicktask"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "559550639683-4ob7fesehv8m0efp7830ormsbparhekl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.quicktask",
+            "certificate_hash": "cad5e6029047ff6d9c6faa3d7dcb733d7b0433b8"
+          }
+        },
+        {
+          "client_id": "559550639683-ugprk5r4hrrsiju9ropsc72q6155na4a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqJJJCbo1yBQ2HB_iJyLEJf9Qx3HqN2qo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "559550639683-ugprk5r4hrrsiju9ropsc72q6155na4a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
