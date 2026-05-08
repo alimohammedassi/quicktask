@@ -1,113 +1,213 @@
+// lib/presentation/screens/add_task_screen.dart
+//
+// UX/UI Redesign v2:
+//  1. Clean indigo/violet theme matching home screen palette
+//  2. Large voice hero with animated wave
+//  3. Card-based sections with soft shadows
+//  4. Color-coded priority selector
+//  5. Better date/time picker with preview
+//  6. Floating CTA with gradient
+//  7. Category chips with icons
+//  8. Progress strip at top
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../../core/constants/app_colors.dart';
-import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../providers/task_provider.dart';
 import '../widgets/voice_button.dart';
 import '../../services/task_parser_service.dart';
+import '../../services/voice_service.dart';
 
-class AddTaskScreen extends ConsumerStatefulWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// Design tokens
+// ─────────────────────────────────────────────────────────────────────────────
+class _T {
+  static const bg = Color(0xFFF1F5F9);
+  static const surface = Color(0xFFFFFFFF);
+  static const accent = Color(0xFF4F46E5);
+  static const accentLight = Color(0xFFEEF2FF);
+  static const textPri = Color(0xFF1E293B);
+  static const textSec = Color(0xFF64748B);
+  static const textHint = Color(0xFF94A3B8);
+  static const border = Color(0xFFE2E8F0);
+  static const success = Color(0xFF10B981);
+  static const successBg = Color(0xFFF0FDF4);
+  static const warn = Color(0xFFF59E0B);
+  static const warnBg = Color(0xFFFFFBEB);
+  static const danger = Color(0xFFEF4444);
+  static const dangerBg = Color(0xFFFEF2F2);
+  static const radius = Radius.circular(20);
+  static const radiusSm = Radius.circular(12);
+}
+
+enum _Priority { low, medium, high }
+
+class _QuickTime {
+  final String label;
+  final IconData icon;
+  final Duration offset;
+  const _QuickTime(this.label, this.icon, this.offset);
+}
+
+const _quickTimes = [
+  _QuickTime('30 min', Icons.schedule_outlined, Duration(minutes: 30)),
+  _QuickTime('1 hour', Icons.schedule_outlined, Duration(hours: 1)),
+  _QuickTime('Evening', Icons.wb_twilight_outlined, Duration(hours: 0)),
+  _QuickTime('Tomorrow', Icons.event_outlined, Duration(hours: 0)),
+  _QuickTime('Next week', Icons.calendar_month_outlined, Duration(days: 7)),
+];
+
+const _reminderOptions = ['5 min', '10 min', '15 min', '30 min', '1 hour'];
+
+class _Cat {
+  final String label;
+  final IconData icon;
+  final Color color;
+  const _Cat(this.label, this.icon, this.color);
+}
+
+const _categories = [
+  _Cat('Work', Icons.work_outline, Color(0xFF6366F1)),
+  _Cat('Personal', Icons.person_outline, Color(0xFF8B5CF6)),
+  _Cat('Health', Icons.favorite_outline, Color(0xFFEF4444)),
+  _Cat('Study', Icons.school_outlined, Color(0xFF10B981)),
+  _Cat('Family', Icons.home_outlined, Color(0xFFF59E0B)),
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Screen
+// ─────────────────────────────────────────────────────────────────────────────
+class AddTaskScreen extends StatefulWidget {
   final String? initialText;
   final ParsedTask? initialParsed;
+
   const AddTaskScreen({this.initialText, this.initialParsed, super.key});
 
   @override
-  ConsumerState<AddTaskScreen> createState() => _AddTaskScreenState();
+  State<AddTaskScreen> createState() => _AddTaskScreenState();
 }
 
-class _AddTaskScreenState extends ConsumerState<AddTaskScreen>
+class _AddTaskScreenState extends State<AddTaskScreen>
     with TickerProviderStateMixin {
+  final _descCtrl = TextEditingController();
   late TextEditingController _titleCtrl;
-  final TextEditingController _descCtrl = TextEditingController();
+
   DateTime _scheduledAt = DateTime.now().add(const Duration(hours: 1));
+  _Priority _priority = _Priority.medium;
+  int _reminderIdx = 2;
+  bool _calSync = true;
   bool _isSubmitting = false;
+  int? _activeQuickIdx;
+  final Set<String> _selectedCategories = {'Work'};
 
-  late AnimationController _entranceController;
-  late AnimationController _pulseController;
+  late AnimationController _entranceCtrl;
+  late List<Animation<double>> _fades;
+  late List<Animation<Offset>> _slides;
+  late AnimationController _waveCtrl;
 
-  late List<Animation<double>> _cardFades;
-  late List<Animation<Offset>> _cardSlides;
-  late Animation<double> _pulse;
-
-  int _selectedPriority = 1;
-
-  static const _priorities = [
-    _PriorityData(label: 'Low', emoji: '🟢', colorHex: 0xFF22C55E),
-    _PriorityData(label: 'Medium', emoji: '🟡', colorHex: 0xFFF59E0B),
-    _PriorityData(label: 'High', emoji: '🔴', colorHex: 0xFFEF4444),
-  ];
+  static const _cardCount = 5;
 
   @override
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController(
-        text: widget.initialText ?? widget.initialParsed?.title ?? '');
+      text: widget.initialText ?? widget.initialParsed?.title ?? '',
+    );
     if (widget.initialParsed?.scheduledAt != null) {
       _scheduledAt = widget.initialParsed!.scheduledAt!;
     }
 
-    _entranceController = AnimationController(
+    _entranceCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 800),
     );
-
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat(reverse: true);
-
-    _pulse = Tween<double>(begin: 0.97, end: 1.03).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
-    // Staggered card animations — 5 cards
-    _cardFades = List.generate(5, (i) {
+    _fades = List.generate(_cardCount, (i) {
       final start = i * 0.12;
-      return Tween<double>(begin: 0, end: 1).animate(
-        CurvedAnimation(
-          parent: _entranceController,
-          curve:
-              Interval(start, (start + 0.4).clamp(0, 1), curve: Curves.easeOut),
-        ),
-      );
+      return Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
+        parent: _entranceCtrl,
+        curve: Interval(start, (start + 0.45).clamp(0.0, 1.0),
+            curve: Curves.easeOut),
+      ));
     });
-
-    _cardSlides = List.generate(5, (i) {
+    _slides = List.generate(_cardCount, (i) {
       final start = i * 0.12;
       return Tween<Offset>(
         begin: const Offset(0, 0.06),
         end: Offset.zero,
-      ).animate(
-        CurvedAnimation(
-          parent: _entranceController,
-          curve:
-              Interval(start, (start + 0.4).clamp(0, 1), curve: Curves.easeOut),
-        ),
-      );
+      ).animate(CurvedAnimation(
+        parent: _entranceCtrl,
+        curve: Interval(start, (start + 0.45).clamp(0.0, 1.0),
+            curve: Curves.easeOut),
+      ));
     });
 
-    _entranceController.forward();
+    _waveCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+
+    _entranceCtrl.forward();
   }
 
   @override
   void dispose() {
     _titleCtrl.dispose();
     _descCtrl.dispose();
-    _entranceController.dispose();
-    _pulseController.dispose();
+    _entranceCtrl.dispose();
+    _waveCtrl.dispose();
     super.dispose();
   }
 
-  Widget _buildCard({required int index, required Widget child}) {
-    return FadeTransition(
-      opacity: _cardFades[index],
-      child: SlideTransition(
-        position: _cardSlides[index],
-        child: child,
-      ),
-    );
+  Widget _animated({required int i, required Widget child}) => FadeTransition(
+        opacity: _fades[i],
+        child: SlideTransition(position: _slides[i], child: child),
+      );
+
+  double get _progress {
+    int score = 0;
+    if (_titleCtrl.text.trim().isNotEmpty) score += 60;
+    if (_descCtrl.text.trim().isNotEmpty) score += 15;
+    if (_activeQuickIdx != null) score += 15;
+    if (_selectedCategories.isNotEmpty) score += 10;
+    return score / 100;
+  }
+
+  String get _dateLabel {
+    final now = DateTime.now();
+    final tomorrow = now.add(const Duration(days: 1));
+    if (_isSameDay(_scheduledAt, now)) return 'Today';
+    if (_isSameDay(_scheduledAt, tomorrow)) return 'Tomorrow';
+    return DateFormat('EEE, MMM d').format(_scheduledAt);
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  void _applyQuickTime(int idx) {
+    HapticFeedback.selectionClick();
+    final now = DateTime.now();
+    DateTime result;
+    switch (idx) {
+      case 0:
+        result = now.add(_quickTimes[idx].offset);
+      case 1:
+        result = now.add(_quickTimes[idx].offset);
+      case 2:
+        result = DateTime(now.year, now.month, now.day, 19, 0);
+        if (result.isBefore(now)) result = result.add(const Duration(days: 1));
+      case 3:
+        result = DateTime(
+          now.year, now.month, now.day + 1,
+          _scheduledAt.hour, _scheduledAt.minute,
+        );
+      default:
+        result = now.add(_quickTimes[idx].offset);
+    }
+    setState(() {
+      _scheduledAt = result;
+      _activeQuickIdx = idx;
+    });
   }
 
   Future<void> _pickDateTime() async {
@@ -117,649 +217,667 @@ class _AddTaskScreenState extends ConsumerState<AddTaskScreen>
       initialDate: _scheduledAt,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (ctx, child) => Theme(
-        data: ThemeData.light().copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: AppColors.primary,
-            onPrimary: Colors.white,
-            surface: Colors.white,
-            onSurface: AppColors.textPrimary,
-          ),
-          dialogTheme: DialogThemeData(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-            ),
-          ),
-        ),
-        child: child!,
-      ),
+      builder: _lightPickerTheme,
     );
     if (date == null || !mounted) return;
 
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_scheduledAt),
-      builder: (ctx, child) => Theme(
-        data: ThemeData.light().copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: AppColors.primary,
-            onPrimary: Colors.white,
-            surface: Colors.white,
-            onSurface: AppColors.textPrimary,
-          ),
-          timePickerTheme: TimePickerThemeData(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-            ),
-          ),
-        ),
-        child: child!,
-      ),
+      builder: _lightPickerTheme,
     );
     if (time == null || !mounted) return;
 
     HapticFeedback.lightImpact();
     setState(() {
-      _scheduledAt =
-          DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _scheduledAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _activeQuickIdx = null;
     });
   }
+
+  Widget _lightPickerTheme(BuildContext ctx, Widget? child) => Theme(
+        data: ThemeData.light().copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: _T.accent,
+            onPrimary: Colors.white,
+            surface: Colors.white,
+            onSurface: _T.textPri,
+          ),
+          dialogTheme: DialogThemeData(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          ),
+          timePickerTheme: TimePickerThemeData(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          ),
+        ),
+        child: child!,
+      );
 
   Future<void> _submit() async {
     if (_titleCtrl.text.trim().isEmpty) {
       HapticFeedback.vibrate();
-      _showErrorSnack('Please enter a task title');
+      _showError('Please enter a task title');
       return;
     }
     HapticFeedback.mediumImpact();
     setState(() => _isSubmitting = true);
     try {
-      await ref.read(tasksNotifierProvider.notifier).addTask(
+      await context.read<TasksNotifier>().addTask(
             title: _titleCtrl.text.trim(),
-            description:
-                _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+            description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
             scheduledAt: _scheduledAt,
           );
     } catch (e) {
-      if (mounted) _showErrorSnack('Failed to save task: $e');
+      if (mounted) _showError('Failed to save task: $e');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
     if (mounted) Navigator.of(context).pop();
   }
 
-  void _showErrorSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(children: [
-          const Icon(Icons.warning_amber_rounded,
-              color: Colors.white, size: 18),
-          const SizedBox(width: 10),
-          Text(msg, style: const TextStyle(fontWeight: FontWeight.w500)),
-        ]),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
-  }
-
-  // ─── Is the scheduled date today? ────────────────────────────────────────
-  bool get _isToday {
-    final now = DateTime.now();
-    return _scheduledAt.year == now.year &&
-        _scheduledAt.month == now.month &&
-        _scheduledAt.day == now.day;
-  }
-
-  bool get _isTomorrow {
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    return _scheduledAt.year == tomorrow.year &&
-        _scheduledAt.month == tomorrow.month &&
-        _scheduledAt.day == tomorrow.day;
-  }
-
-  String get _dateLabel {
-    if (_isToday) return 'Today';
-    if (_isTomorrow) return 'Tomorrow';
-    return DateFormat('EEE, MMM d').format(_scheduledAt);
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
+        const SizedBox(width: 10),
+        Expanded(child: Text(msg, style: const TextStyle(fontWeight: FontWeight.w500))),
+      ]),
+      backgroundColor: _T.danger,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      margin: const EdgeInsets.all(16),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
-    const bg = AppColors.bgLight;
-    const surface = Colors.white;
-    const surfaceElevated = Colors.white;
-    const border = AppColors.cardBorder;
-    const accent = AppColors.primary;
-    const accentLight = AppColors.accent;
-    const textPrimary = AppColors.textPrimary;
-    const textSecondary = AppColors.textSecondary;
-    const textHint = AppColors.textHint;
+    final bottomPad = MediaQuery.of(context).viewInsets.bottom +
+        MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: bg,
-      body: Stack(
-        children: [
-          // ─── Ambient gradient orbs ──────────────────────────────────
-          Positioned(
-            top: -80,
-            right: -60,
-            child: Container(
-              width: 260,
-              height: 260,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    accent.withOpacity(0.18),
-                    accent.withOpacity(0),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 100,
-            left: -80,
-            child: Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.accent.withOpacity(0.12),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // ─── Main scroll content ────────────────────────────────────
-          SafeArea(
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                // ── Header ──────────────────────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                    child: Row(
-                      children: [
-                        // Back button
-                        GestureDetector(
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            Navigator.of(context).pop();
-                          },
-                          child: Container(
-                            width: 44, // Slightly larger touch target
-                            height: 44, // Slightly larger touch target
-                            decoration: BoxDecoration(
-                              color: surfaceElevated,
-                              borderRadius:
-                                  BorderRadius.circular(14), // Rounded corners
-                              border: Border.all(
-                                  color:
-                                      border.withOpacity(0.7)), // Subtle border
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: textSecondary,
-                              size: 18, // Slightly larger icon
+      backgroundColor: _T.bg,
+      body: Stack(children: [
+        Column(children: [
+          _ProgressStrip(progress: _progress),
+          Expanded(
+            child: SafeArea(
+              bottom: false,
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              Navigator.of(context).pop();
+                            },
+                            child: Container(
+                              width: 40, height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.arrow_back_rounded,
+                                  color: _T.textPri, size: 18),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 16), // Increased spacing
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'New Task',
-                              style: TextStyle(
-                                color: textPrimary,
-                                fontSize: 28, // Larger title
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.8,
-                                height: 1,
-                              ),
-                            ),
-                            const SizedBox(height: 4), // Adjusted spacing
-                            Text(
-                              DateFormat('EEEE, MMMM d').format(DateTime.now()),
-                              style: const TextStyle(
-                                color: textHint,
-                                fontSize: 14, // Slightly larger date text
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        // Completion step indicator
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 7), // Adjusted padding
-                          decoration: BoxDecoration(
-                            color: accent.withOpacity(0.15),
-                            borderRadius:
-                                BorderRadius.circular(22), // More rounded
-                            border: Border.all(color: accent.withOpacity(0.3)),
-                          ),
-                          child: const Text(
-                            '✦ New',
+                          const Text('New Task',
                             style: TextStyle(
-                              color: accentLight,
-                              fontSize: 13, // Slightly larger text
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.3,
+                              color: _T.textPri,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                            )),
+                          GestureDetector(
+                            onTap: () {},
+                            child: Container(
+                              width: 40, height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.more_horiz_rounded,
+                                  color: _T.textSec, size: 18),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPad + 100),
+                    sliver: SliverList(delegate: SliverChildListDelegate([
 
-                SliverPadding(
-                  padding: EdgeInsets.only(
-                    left: 20,
-                    right: 20,
-                    top: 32, // Increased top padding
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 40,
-                  ),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      // ── Card 0: Voice input ──────────────────────
-                      _buildCard(
-                        index: 0,
-                        child: _GlassCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  _IconBadge(
-                                    icon: Icons.mic_rounded, // Changed icon
-                                    color: accent,
-                                  ),
-                                  const SizedBox(
-                                      width: 16), // Increased spacing
-                                  const Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Voice Input',
-                                        style: TextStyle(
-                                          color: textPrimary,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 17, // Increased font size
-                                          letterSpacing: -0.2,
-                                        ),
-                                      ),
-                                      SizedBox(height: 4), // Adjusted spacing
-                                      Text(
-                                        "Speak and we'll fill the form",
-                                        style: TextStyle(
-                                          color: textHint,
-                                          fontSize: 14, // Increased font size
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 28), // Increased spacing
-                              Center(
-                                child: VoiceButton(
-                                  onTextCaptured: (text) {
-                                    HapticFeedback.lightImpact();
-                                    setState(() => _titleCtrl.text = text);
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      // ── 1. Voice hero ─────────────────────────────────
+                      _animated(i: 0, child: _VoiceCard(
+                        onTextCaptured: (text) {
+                          HapticFeedback.lightImpact();
+                          setState(() => _titleCtrl.text = text);
+                        },
+                        onParsed: (task) {
+                          HapticFeedback.lightImpact();
+                          setState(() {
+                            _titleCtrl.text = task.title;
+                            if (task.scheduledAt != null) {
+                              _scheduledAt = task.scheduledAt!;
+                              _activeQuickIdx = null;
+                            }
+                          });
+                        },
+                      )),
+                      const SizedBox(height: 16),
 
-                      const SizedBox(height: 18), // Adjusted spacing
-
-                      // ── Card 1: Title + Description ──────────────
-                      _buildCard(
-                        index: 1,
-                        child: _GlassCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _DarkTextField(
-                                controller: _titleCtrl,
-                                label: 'What needs doing?',
-                                hint: 'e.g. Review the quarterly report…',
-                                maxLines: 1,
-                                autofocus: false,
-                              ),
-                              const SizedBox(height: 24), // Adjusted spacing
-                              const _Divider(),
-                              const SizedBox(height: 24), // Adjusted spacing
-                              _DarkTextField(
-                                controller: _descCtrl,
-                                label: 'Notes',
-                                hint: 'Any extra context or details…',
-                                maxLines: 3,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 18), // Adjusted spacing
-
-                      // ── Card 2: Priority ─────────────────────────
-                      _buildCard(
-                        index: 2,
-                        child: _GlassCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  _IconBadge(
-                                    icon: Icons.flag_rounded, // Changed icon
-                                    color: const Color(0xFFF59E0B),
-                                  ),
-                                  const SizedBox(
-                                      width: 16), // Increased spacing
-                                  const Text(
-                                    'Priority',
-                                    style: TextStyle(
-                                      color: textPrimary,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 17, // Increased font size
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 22), // Adjusted spacing
-                              Row(
-                                children: List.generate(3, (i) {
-                                  final p = _priorities[i];
-                                  final isSelected = _selectedPriority == i;
-                                  final color = Color(p.colorHex);
-                                  return Expanded(
-                                    child: Padding(
-                                      padding: EdgeInsets.only(
-                                          right: i < 2
-                                              ? 12
-                                              : 0), // Adjusted spacing
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          HapticFeedback.selectionClick();
-                                          setState(() => _selectedPriority = i);
-                                        },
-                                        child: AnimatedContainer(
-                                          duration:
-                                              const Duration(milliseconds: 220),
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 18), // Adjusted padding
-                                          decoration: BoxDecoration(
-                                            color: isSelected
-                                                ? color.withOpacity(0.15)
-                                                : surfaceElevated,
-                                            borderRadius: BorderRadius.circular(
-                                                18), // More rounded
-                                            border: Border.all(
-                                              color: isSelected
-                                                  ? color.withOpacity(0.6)
-                                                  : border,
-                                              width: isSelected ? 1.8 : 1,
-                                            ),
-                                            boxShadow: isSelected
-                                                ? [
-                                                    BoxShadow(
-                                                      color: color
-                                                          .withOpacity(0.15),
-                                                      blurRadius: 12,
-                                                      spreadRadius: 2,
-                                                    )
-                                                  ]
-                                                : null,
-                                          ),
-                                          child: Column(
-                                            children: [
-                                              Text(p.emoji,
-                                                  style: const TextStyle(
-                                                      fontSize:
-                                                          24)), // Increased emoji size
-                                              const SizedBox(
-                                                  height:
-                                                      10), // Adjusted spacing
-                                              Text(
-                                                p.label,
-                                                style: TextStyle(
-                                                  color: isSelected
-                                                      ? color
-                                                      : textHint,
-                                                  fontSize:
-                                                      14, // Increased font size
-                                                  fontWeight: isSelected
-                                                      ? FontWeight.w700
-                                                      : FontWeight.w500,
-                                                  letterSpacing: 0.2,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 18), // Adjusted spacing
-
-                      // ── Card 3: Date & Time ──────────────────────
-                      _buildCard(
-                        index: 3,
-                        child: GestureDetector(
-                          onTap: _pickDateTime,
-                          child: _GlassCard(
+                      // ── 2. Title + description ────────────────────────
+                      _animated(i: 1, child: _Card(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
                             child: Row(
                               children: [
-                                _IconBadge(
-                                  icon: Icons
-                                      .calendar_month_rounded, // Changed icon
-                                  color: AppColors.success,
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _dateLabel,
-                                        style: const TextStyle(
-                                          color: textPrimary,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 18, // Increased font size
-                                          letterSpacing: -0.3,
-                                        ),
-                                      ),
-                                      const SizedBox(
-                                          height: 6), // Adjusted spacing
-                                      Text(
-                                        DateFormat('h:mm a  •  yyyy')
-                                            .format(_scheduledAt),
-                                        style: const TextStyle(
-                                          color: textHint,
-                                          fontSize: 15, // Increased font size
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                _SectionLabel('Task title'),
+                                const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 9), // Adjusted padding
-                                  decoration: BoxDecoration(
-                                    color: border.withOpacity(
-                                        0.7), // Slightly more visible
-                                    borderRadius: BorderRadius.circular(
-                                        14), // More rounded
-                                  ),
-                                  child: const Text(
-                                    'Change',
+                                  width: 6, height: 6,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle, color: _T.danger),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                            child: TextField(
+                              controller: _titleCtrl,
+                              onChanged: (_) => setState(() {}),
+                              style: const TextStyle(
+                                color: _T.textPri,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                height: 1.5,
+                              ),
+                              cursorColor: _T.accent,
+                              decoration: InputDecoration(
+                                hintText: 'What needs to be done?',
+                                hintStyle: const TextStyle(
+                                  color: _T.textHint,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w400),
+                                filled: true,
+                                fillColor: _T.bg,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 14),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(_T.radiusSm),
+                                  borderSide: const BorderSide(color: _T.border),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(_T.radiusSm),
+                                  borderSide: const BorderSide(color: _T.border),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(_T.radiusSm),
+                                  borderSide: const BorderSide(color: _T.accent, width: 1.5),
+                                ),
+                              ),
+                              textInputAction: TextInputAction.next,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.notes_rounded,
+                                    size: 14, color: _T.textHint),
+                                const SizedBox(width: 6),
+                                const Text('Notes (optional)',
                                     style: TextStyle(
-                                      color: textSecondary,
-                                      fontSize: 14, // Increased font size
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                      color: _T.textHint,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600)),
+                                const Spacer(),
+                                Text('${_titleCtrl.text.length}/80',
+                                    style: const TextStyle(
+                                      fontSize: 11, color: _T.textHint,
+                                      fontFeatures: [FontFeature.tabularFigures()])),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
+                            child: TextField(
+                              controller: _descCtrl,
+                              onChanged: (_) => setState(() {}),
+                              maxLines: 2,
+                              style: const TextStyle(
+                                color: _T.textPri,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                                height: 1.5,
+                              ),
+                              cursorColor: _T.accent,
+                              decoration: InputDecoration(
+                                hintText: 'Add details or context...',
+                                hintStyle: const TextStyle(
+                                  color: _T.textHint,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400),
+                                filled: true,
+                                fillColor: _T.bg,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(_T.radiusSm),
+                                  borderSide: const BorderSide(color: _T.border),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(_T.radiusSm),
+                                  borderSide: const BorderSide(color: _T.border),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(_T.radiusSm),
+                                  borderSide: const BorderSide(color: _T.accent, width: 1.5),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )),
+                      const SizedBox(height: 12),
+
+                      // ── 3. Date & Time ───────────────────────────────
+                      _animated(i: 2, child: _Card(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.calendar_today_outlined,
+                                    size: 16, color: _T.accent),
+                                const SizedBox(width: 8),
+                                const Text('When',
+                                    style: TextStyle(
+                                      color: _T.textSec,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _DateTimeChip(
+                                    label: 'Date',
+                                    value: _dateLabel,
+                                    icon: Icons.event_outlined,
+                                    color: _T.accent,
+                                    onTap: _pickDateTime,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _DateTimeChip(
+                                    label: 'Time',
+                                    value: DateFormat('h:mm a').format(_scheduledAt),
+                                    icon: Icons.access_time_rounded,
+                                    color: _T.accent,
+                                    onTap: _pickDateTime,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 40), // Increased spacing
-
-                      // ── Card 4: Submit ───────────────────────────
-                      _buildCard(
-                        index: 4,
-                        child: Column(
-                          children: [
-                            SizedBox(
-                              width: double.infinity,
-                              height: 68, // Increased height
-                              child: _SubmitButton(
-                                isSubmitting: _isSubmitting,
-                                onTap: _isSubmitting ? null : _submit,
-                              ),
-                            ),
-                            const SizedBox(height: 20), // Adjusted spacing
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                          const SizedBox(height: 14),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  width: 8, // Increased size
-                                  height: 8, // Increased size
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: AppColors.success,
-                                  ),
-                                ),
-                                const SizedBox(width: 12), // Adjusted spacing
-                                const Text(
-                                  'Syncs to Google Calendar automatically',
-                                  style: TextStyle(
-                                    color: textHint,
-                                    fontSize: 14, // Increased font size
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                const Text('Quick pick',
+                                    style: TextStyle(
+                                      color: _T.textHint,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5)),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: List.generate(_quickTimes.length, (i) => _QuickChip(
+                                    label: _quickTimes[i].label,
+                                    icon: _quickTimes[i].icon,
+                                    selected: _activeQuickIdx == i,
+                                    onTap: () => _applyQuickTime(i),
+                                  )),
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                    ]),
+                          ),
+                        ],
+                      )),
+                      const SizedBox(height: 12),
+
+                      // ── 4. Priority ─────────────────────────────────
+                      _animated(i: 3, child: _Card(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.flag_outlined,
+                                        size: 16, color: _T.accent),
+                                    const SizedBox(width: 8),
+                                    const Text('Priority',
+                                        style: TextStyle(
+                                          color: _T.textSec,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.5)),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                Row(children: [
+                                  _PriorityBtn(
+                                    label: 'Low',
+                                    color: _T.success,
+                                    bgColor: _T.successBg,
+                                    selected: _priority == _Priority.low,
+                                    icon: Icons.arrow_downward_rounded,
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => _priority = _Priority.low);
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _PriorityBtn(
+                                    label: 'Medium',
+                                    color: _T.warn,
+                                    bgColor: _T.warnBg,
+                                    selected: _priority == _Priority.medium,
+                                    icon: Icons.remove_rounded,
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => _priority = _Priority.medium);
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _PriorityBtn(
+                                    label: 'High',
+                                    color: _T.danger,
+                                    bgColor: _T.dangerBg,
+                                    selected: _priority == _Priority.high,
+                                    icon: Icons.arrow_upward_rounded,
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => _priority = _Priority.high);
+                                    },
+                                  ),
+                                ]),
+                              ],
+                            ),
+                          ),
+                        ],
+                      )),
+                      const SizedBox(height: 12),
+
+                      // ── 5. Reminder + Sync + Category ────────────────
+                      _animated(i: 4, child: _Card(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                _SettingRow(
+                                  icon: Icons.notifications_outlined,
+                                  iconBg: _T.accentLight,
+                                  iconColor: _T.accent,
+                                  label: 'Reminder',
+                                  value: _reminderOptions[_reminderIdx],
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    setState(() =>
+                                        _reminderIdx = (_reminderIdx + 1) % _reminderOptions.length);
+                                  },
+                                ),
+                                Container(height: 1, color: _T.border, margin: const EdgeInsets.symmetric(vertical: 4)),
+                                _SettingRow(
+                                  icon: Icons.calendar_month_outlined,
+                                  iconBg: const Color(0xFFF0FDF4),
+                                  iconColor: _T.success,
+                                  label: 'Google Calendar',
+                                  value: _calSync ? 'On' : 'Off',
+                                  valueColor: _calSync ? _T.success : _T.textHint,
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    setState(() => _calSync = !_calSync);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.category_outlined,
+                                        size: 16, color: _T.accent),
+                                    SizedBox(width: 8),
+                                    Text('Category',
+                                        style: TextStyle(
+                                          color: _T.textSec,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.5)),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    ..._categories.map((cat) => _CategoryChip(
+                                      label: cat.label,
+                                      icon: cat.icon,
+                                      color: cat.color,
+                                      selected: _selectedCategories.contains(cat.label),
+                                      onTap: () {
+                                        HapticFeedback.selectionClick();
+                                        setState(() {
+                                          if (_selectedCategories.contains(cat.label)) {
+                                            _selectedCategories.remove(cat.label);
+                                          } else {
+                                            _selectedCategories.add(cat.label);
+                                          }
+                                        });
+                                      },
+                                    )),
+                                    _AddCategoryChip(onTap: () {}),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      )),
+                      const SizedBox(height: 24),
+                    ])),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ],
-      ),
+        ]),
+
+        // ── Fixed CTA bar ─────────────────────────────────────────────
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: _CtaBar(
+            isSubmitting: _isSubmitting,
+            onTap: _isSubmitting ? null : _submit,
+            bottomPad: MediaQuery.of(context).padding.bottom,
+            canSubmit: _titleCtrl.text.trim().isNotEmpty,
+          ),
+        ),
+      ]),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Design Tokens & Helpers
+// Sub-widgets
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _GlassCard extends StatelessWidget {
-  final Widget child;
-  const _GlassCard({required this.child});
+class _ProgressStrip extends StatelessWidget {
+  const _ProgressStrip({required this.progress});
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 3,
+      child: LayoutBuilder(builder: (_, constraints) {
+        return Stack(children: [
+          Container(color: _T.border),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOut,
+            width: constraints.maxWidth * progress,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ]);
+      }),
+    );
+  }
+}
+
+class _Card extends StatelessWidget {
+  final List<Widget> children;
+  const _Card({required this.children});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24), // Increased padding
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24), // Increased border radius
-        border: Border.all(
-            color: AppColors.cardBorder.withOpacity(0.7)), // Subtle border
+        color: _T.surface,
+        borderRadius: BorderRadius.all(_T.radius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06), // Slightly stronger shadow
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: child,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
     );
   }
 }
 
-class _IconBadge extends StatelessWidget {
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text.toUpperCase(),
+        style: const TextStyle(
+          color: _T.textHint,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.0,
+        ),
+      );
+}
+
+class _DateTimeChip extends StatelessWidget {
+  const _DateTimeChip({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
   final IconData icon;
   final Color color;
-  const _IconBadge({required this.icon, required this.color});
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 48, // Increased size for better visual weight
-      height: 48, // Increased size
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.18), // Slightly more opaque
-        borderRadius: BorderRadius.circular(16), // Adjusted border radius
-        border: Border.all(
-            color: color.withOpacity(0.3)), // Slightly more opaque border
-      ),
-      child: Icon(icon, color: color, size: 24), // Increased icon size
-    );
-  }
-}
-
-class _Divider extends StatelessWidget {
-  const _Divider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 1,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.transparent,
-            AppColors.cardBorder.withOpacity(0.8), // More visible divider
-            Colors.transparent,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: _T.accentLight,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 12, color: color),
+                const SizedBox(width: 4),
+                Text(label.toUpperCase(),
+                    style: TextStyle(
+                      color: color.withValues(alpha: 0.7),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    )),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(value,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                )),
           ],
         ),
       ),
@@ -767,88 +885,541 @@ class _Divider extends StatelessWidget {
   }
 }
 
-class _DarkTextField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final String hint;
-  final int maxLines;
-  final bool autofocus;
-
-  const _DarkTextField({
-    required this.controller,
+class _QuickChip extends StatelessWidget {
+  const _QuickChip({
     required this.label,
-    required this.hint,
-    required this.maxLines,
-    this.autofocus = false,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
   });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 12, // Increased font size
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.5, // Increased letter spacing
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? _T.accentLight : _T.bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? _T.accent : _T.border,
+            width: selected ? 1.5 : 1.0,
           ),
         ),
-        const SizedBox(height: 12), // Adjusted spacing
-        TextField(
-          controller: controller,
-          maxLines: maxLines,
-          autofocus: autofocus,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 16, // Increased font size
-            fontWeight: FontWeight.w500,
-            height: 1.5,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: selected ? _T.accent : _T.textHint),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: selected ? _T.accent : _T.textSec,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PriorityBtn extends StatelessWidget {
+  const _PriorityBtn({
+    required this.label,
+    required this.color,
+    required this.bgColor,
+    required this.selected,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color color;
+  final Color bgColor;
+  final bool selected;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: selected ? bgColor : _T.bg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? color : _T.border,
+              width: selected ? 1.5 : 1.0,
+            ),
           ),
-          cursorColor: AppColors.primary,
-          cursorWidth: 2, // Increased cursor width
-          cursorRadius: const Radius.circular(2),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(
-              color: AppColors.textHint,
-              fontSize: 15, // Increased font size
-              fontWeight: FontWeight.w400,
-            ),
-            filled: true,
-            fillColor:
-                AppColors.bgLight.withOpacity(0.7), // Slightly transparent fill
-            contentPadding: const EdgeInsets.symmetric(
-                horizontal: 18, vertical: 16), // Adjusted padding
-            border: OutlineInputBorder(
-              borderRadius:
-                  BorderRadius.circular(16), // Increased border radius
-              borderSide: BorderSide.none, // No border by default
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                  color: AppColors.cardBorder, width: 1), // Subtle border
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                  color: AppColors.primary,
-                  width: 2), // More prominent focus border
-            ),
+          child: Column(
+            children: [
+              Icon(icon, size: 16, color: selected ? color : _T.textHint),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? color : _T.textSec,
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
+    );
+  }
+}
+
+class _SettingRow extends StatelessWidget {
+  const _SettingRow({
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+    this.valueColor,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(children: [
+          Container(
+            width: 34, height: 34,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 16),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _T.textPri)),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: _T.bg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _T.border),
+            ),
+            child: Text(value,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: valueColor ?? _T.textSec)),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.1) : _T.bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? color : _T.border,
+            width: selected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: selected ? color : _T.textHint),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: selected ? color : _T.textSec,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AddCategoryChip extends StatelessWidget {
+  const _AddCategoryChip({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: _T.bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _T.border),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add, size: 13, color: _T.textHint),
+            SizedBox(width: 5),
+            Text(
+              'New',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _T.textHint,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VOICE HERO CARD
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _VoiceCard extends StatefulWidget {
+  const _VoiceCard({required this.onTextCaptured, this.onParsed});
+
+  final void Function(String text) onTextCaptured;
+  final void Function(ParsedTask task)? onParsed;
+
+  @override
+  State<_VoiceCard> createState() => _VoiceCardState();
+}
+
+class _VoiceCardState extends State<_VoiceCard>
+    with TickerProviderStateMixin {
+  bool _listening = false;
+  late AnimationController _waveCtrl;
+  final VoiceService _voice = VoiceService();
+  final TaskParserService _parser = TaskParserService();
+  TtsLocale _currentLocale = TtsLocale.english;
+
+  @override
+  void initState() {
+    super.initState();
+    _waveCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+  }
+
+  @override
+  void dispose() {
+    _waveCtrl.dispose();
+    _voice.stop();
+    super.dispose();
+  }
+
+  Future<void> _toggleListening() async {
+    HapticFeedback.mediumImpact();
+    if (_listening) {
+      await _voice.stop();
+      _waveCtrl.stop();
+      if (mounted) setState(() => _listening = false);
+    } else {
+      if (mounted) setState(() => _listening = true);
+      _waveCtrl.repeat(reverse: true);
+      await _voice.startListening(
+        onResult: (text) {
+          if (widget.onParsed != null) {
+            final parsed = _parser.parse(text);
+            widget.onParsed!(parsed);
+          } else {
+            widget.onTextCaptured(text);
+          }
+        },
+        onDone: () {
+          if (mounted) {
+            _waveCtrl.stop();
+            setState(() => _listening = false);
+          }
+        },
+      );
+    }
+  }
+
+  Future<void> _switchLocale() async {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _currentLocale = _currentLocale == TtsLocale.english ? TtsLocale.arabic : TtsLocale.english;
+    });
+    await _voice.setLocale(_currentLocale);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isAr = _currentLocale == TtsLocale.arabic;
+    return GestureDetector(
+      onTap: _toggleListening,
+      onLongPress: _switchLocale,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: _listening
+                ? [const Color(0xFF4338CA), const Color(0xFF3730A3)]
+                : [const Color(0xFF6366F1), const Color(0xFF4F46E5)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: (_listening ? const Color(0xFF4338CA) : const Color(0xFF6366F1))
+                  .withValues(alpha: 0.35),
+              blurRadius: _listening ? 24 : 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                        size: 12,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'QUICK INPUT',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    isAr ? 'AR' : 'EN',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              _listening
+                  ? (isAr ? 'جاري الاستماع...' : 'Listening… speak now')
+                  : (isAr ? 'انقر لتسجيل مهمة صوتياً' : 'Tap to speak your task'),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+              ),
+            ),
+            if (!_listening) ...[
+              const SizedBox(height: 6),
+              Text(
+                isAr ? 'اضغط مطولاً لتغيير اللغة' : 'Hold to switch language',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
+              ),
+            ],
+            const SizedBox(height: 18),
+            if (_listening)
+              _WaveAnimation(controller: _waveCtrl)
+            else
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.mic_rounded, size: 16, color: Colors.white.withValues(alpha: 0.9)),
+                        const SizedBox(width: 8),
+                        Text(
+                          isAr ? 'اضغط للتحدث' : 'Tap to speak',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WaveAnimation extends StatelessWidget {
+  const _WaveAnimation({required this.controller});
+  final AnimationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final heights = [6.0, 14.0, 10.0, 16.0, 8.0];
+    return SizedBox(
+      height: 24,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: List.generate(5, (i) {
+          final delay = i * 0.15;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: AnimatedBuilder(
+              animation: controller,
+              builder: (_, __) {
+                final t = ((controller.value + delay) % 1.0);
+                final scale = 0.5 + 0.5 * (t < 0.5 ? 2 * t : 2 * (1 - t));
+                return Container(
+                  width: 4,
+                  height: heights[i] * scale,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                );
+              },
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CTA BAR
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CtaBar extends StatelessWidget {
+  const _CtaBar({
+    required this.isSubmitting,
+    required this.onTap,
+    required this.bottomPad,
+    required this.canSubmit,
+  });
+
+  final bool isSubmitting;
+  final VoidCallback? onTap;
+  final double bottomPad;
+  final bool canSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_T.bg.withValues(alpha: 0), _T.bg, _T.bg],
+          stops: const [0.0, 0.3, 1.0],
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPad + 20),
+      child: _SubmitButton(
+        isSubmitting: isSubmitting,
+        onTap: onTap,
+        canSubmit: canSubmit,
+      ),
     );
   }
 }
 
 class _SubmitButton extends StatefulWidget {
+  const _SubmitButton({
+    required this.isSubmitting,
+    this.onTap,
+    required this.canSubmit,
+  });
+
   final bool isSubmitting;
   final VoidCallback? onTap;
-  const _SubmitButton({required this.isSubmitting, this.onTap});
+  final bool canSubmit;
 
   @override
   State<_SubmitButton> createState() => _SubmitButtonState();
@@ -857,20 +1428,18 @@ class _SubmitButton extends StatefulWidget {
 class _SubmitButtonState extends State<_SubmitButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _pressCtrl;
-  late Animation<double> _scaleAnim;
 
   @override
   void initState() {
     super.initState();
     _pressCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 100),
-      reverseDuration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 80),
+      reverseDuration: const Duration(milliseconds: 180),
       lowerBound: 0.96,
       upperBound: 1.0,
       value: 1.0,
     );
-    _scaleAnim = _pressCtrl;
   }
 
   @override
@@ -881,93 +1450,76 @@ class _SubmitButtonState extends State<_SubmitButton>
 
   @override
   Widget build(BuildContext context) {
+    final disabled = !widget.canSubmit && !widget.isSubmitting;
     return GestureDetector(
-      onTapDown: (_) => _pressCtrl.reverse(),
-      onTapUp: (_) {
-        _pressCtrl.forward();
-        widget.onTap?.call();
-      },
+      onTapDown: disabled ? null : (_) => _pressCtrl.reverse(),
+      onTapUp: disabled
+          ? null
+          : (_) {
+              _pressCtrl.forward();
+              widget.onTap?.call();
+            },
       onTapCancel: () => _pressCtrl.forward(),
       child: ScaleTransition(
-        scale: _scaleAnim,
-        child: Container(
+        scale: _pressCtrl,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 54,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22), // Increased border radius
-            gradient: widget.isSubmitting
+            gradient: disabled
                 ? null
                 : const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.primary, // Using primary
-                      AppColors.accent, // Using accent
-                    ],
+                    colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
                   ),
-            color: widget.isSubmitting
-                ? AppColors.cardBorder
-                    .withOpacity(0.7) // Greyed out when submitting
-                : null,
-            boxShadow: widget.isSubmitting
-                ? null
+            color: disabled ? const Color(0xFFE2E8F0) : null,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: disabled
+                ? []
                 : [
                     BoxShadow(
-                      color:
-                          AppColors.primary.withOpacity(0.5), // Stronger shadow
-                      blurRadius: 28, // Increased blur
-                      offset: const Offset(0, 10), // Adjusted offset
-                      spreadRadius: -6, // Adjusted spread
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.35),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
                     ),
                   ],
           ),
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
+            duration: const Duration(milliseconds: 200),
             child: widget.isSubmitting
                 ? const Center(
                     key: ValueKey('loading'),
                     child: SizedBox(
-                      width: 24, // Increased size
-                      height: 24, // Increased size
+                      width: 24, height: 24,
                       child: CircularProgressIndicator(
-                        color:
-                            Colors.white, // White spinner for better contrast
-                        strokeWidth: 3,
-                      ),
+                        color: Colors.white, strokeWidth: 2.5),
                     ),
                   )
-                : const Row(
-                    key: ValueKey('label'),
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add_task_rounded, // Changed icon
-                          color: Colors.white,
-                          size: 24), // Increased icon size
-                      SizedBox(width: 10), // Adjusted spacing
-                      Text(
-                        'Create Task', // Changed text
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18, // Increased font size
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
+                : Center(
+                    key: const ValueKey('label'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          disabled ? Icons.check_rounded : Icons.add_rounded,
+                          color: disabled ? _T.textHint : Colors.white,
+                          size: 20,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Text(
+                          disabled ? 'Add a title to continue' : 'Create Task',
+                          style: TextStyle(
+                            color: disabled ? _T.textHint : Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
           ),
         ),
       ),
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Data
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PriorityData {
-  final String label;
-  final String emoji;
-  final int colorHex;
-  const _PriorityData(
-      {required this.label, required this.emoji, required this.colorHex});
 }

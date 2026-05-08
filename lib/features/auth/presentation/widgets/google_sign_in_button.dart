@@ -65,10 +65,10 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
                         children: [
                           _buildGoogleLogo(),
                           const SizedBox(width: 12),
-                          Text(
+                          const Text(
                             'Continue with Google',
                             style: TextStyle(
-                              color: const Color(0xFF1A1A2E),
+                              color: Color(0xFF1A1A2E),
                               fontSize: 15,
                               fontWeight: FontWeight.w500,
                             ),
@@ -84,61 +84,14 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
   }
 
   Widget _buildGoogleLogo() {
-    return SizedBox(
+    return Image.network(
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png',
       width: 22,
       height: 22,
-      child: Stack(
-        children: [
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: const BoxDecoration(
-                color: Color(0xFFEA4335),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            top: 0,
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFBBC05),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            bottom: 0,
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: const BoxDecoration(
-                color: Color(0xFF34A853),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: const BoxDecoration(
-                color: Color(0xFF4285F4),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-        ],
-      ),
+      errorBuilder: (context, error, stackTrace) {
+        // Fallback if image fails to load
+        return const Icon(Icons.g_mobiledata_rounded, color: Color(0xFF4285F4), size: 32);
+      },
     );
   }
 }

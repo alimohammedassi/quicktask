@@ -1,5 +1,4 @@
 // lib/services/task_parser_service.dart
-import 'package:intl/intl.dart';
 
 class ParsedTask {
   final String title;
@@ -37,30 +36,6 @@ class TaskParserService {
     'fifty': 50,
   };
 
-  static final _arDayNames = {
-    'الأحد': 1, 'أحد': 1,
-    'الاثنين': 2, 'اثنان': 2,
-    'الثلاثاء': 3, 'ثلاثاء': 3,
-    'الأربعاء': 4, 'أربعاء': 4,
-    'الخميس': 5, 'خميس': 5,
-    'الجمعة': 6, 'جمعة': 6,
-    'السبت': 7, 'سبت': 7,
-  };
-
-  static const _arMonthNames = {
-    'يناير': 1, 'كانون الثاني': 1,
-    'فبراير': 2, 'شباط': 2,
-    'مارس': 3, 'آذار': 3,
-    'أبريل': 4, 'نيسان': 4,
-    'مايو': 5, 'أيار': 5,
-    'يونيو': 6, 'حزيران': 6,
-    'يوليو': 7, 'تموز': 7,
-    'أغسطس': 8, 'آب': 8,
-    'سبتمبر': 9, 'أيلول': 9,
-    'أكتوبر': 10, 'تشرين الأول': 10,
-    'نوفمبر': 11, 'تشرين الثاني': 11,
-    'ديسمبر': 12, 'كانون الأول': 12,
-  };
 
   String _replaceWordNumbers(String text, Map<String, int> numberMap) {
     String result = text;

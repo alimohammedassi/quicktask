@@ -1,20 +1,20 @@
 // lib/features/auth/presentation/screens/register_screen.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/google_sign_in_button.dart';
 import '../../../../core/constants/app_colors.dart';
 
-class RegisterScreen extends ConsumerStatefulWidget {
+class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
@@ -22,6 +22,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _confirmPasswordCtrl = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthNotifier>().addListener(_onAuthStateChanged);
+    });
+  }
+
+  void _onAuthStateChanged() {
+    if (!mounted) return;
+    final state = context.read<AuthNotifier>().state;
+    if (state is AuthError) {
+      _showErrorSnackBar(state.message);
+    }
+  }
 
   @override
   void dispose() {
@@ -34,16 +50,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authNotifierProvider);
+    final authState = context.watch<AuthNotifier>().state;
     final isLoading = authState is AuthLoading;
-
-    ref.listen(authNotifierProvider, (prev, next) {
-      if (next is AuthError) {
-        _showErrorSnackBar(next.message);
-      } else if (next is AuthAuthenticated) {
-        context.go('/home');
-      }
-    });
 
     return Scaffold(
       backgroundColor: AppColors.bgDark,
@@ -65,7 +73,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   GoogleSignInButton(
                     isLoading: isLoading,
                     onPressed: () =>
-                        ref.read(authNotifierProvider.notifier).signInWithGoogle(),
+                        context.read<AuthNotifier>().signInWithGoogle(),
                   ),
                   const SizedBox(height: 32),
                   _buildLoginLink(),
@@ -101,7 +109,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Widget _buildHeader() {
-    return Column(
+    return const Column(
       children: [
         Text(
           'Create Account',
@@ -112,7 +120,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             letterSpacing: -0.5,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Text(
           'Sign up to get started with QuickTask',
           style: TextStyle(
@@ -207,12 +215,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       obscureText: obscure,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
-      style: TextStyle(color: AppColors.textPrimary),
+      style: const TextStyle(color: AppColors.textPrimary),
       validator: validator,
       onFieldSubmitted: textInputAction == TextInputAction.done ? (_) => _submit() : null,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: AppColors.textHint),
+        hintStyle: const TextStyle(color: AppColors.textHint),
         prefixIcon: Icon(icon, color: AppColors.textSecondary, size: 20),
         suffixIcon: suffix,
         filled: true,
@@ -227,15 +235,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: AppColors.accent, width: 1.5),
+          borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: AppColors.error, width: 1.5),
+          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: AppColors.error, width: 1.5),
+          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
@@ -344,7 +352,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.black54),
                 ),
               )
-            : Text(
+            : const Text(
                 'Create Account',
                 style: TextStyle(
                   fontSize: 16,
@@ -360,8 +368,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return Row(
       children: [
         Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.08))),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'OR',
             style: TextStyle(
@@ -379,13 +387,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(
+        const Text(
           'Already have an account? ',
           style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
         ),
         GestureDetector(
           onTap: () => context.go('/login'),
-          child: Text(
+          child: const Text(
             'Sign In',
             style: TextStyle(
               color: AppColors.accent,
@@ -400,7 +408,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    ref.read(authNotifierProvider.notifier).signUpWithEmail(
+    context.read<AuthNotifier>().signUpWithEmail(
           _emailCtrl.text.trim(),
           _passwordCtrl.text,
           displayName: _nameCtrl.text.trim(),

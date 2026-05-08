@@ -67,7 +67,10 @@ class CalendarService {
       headers: headers,
     );
 
-    if (resp.statusCode != 204 && resp.statusCode != 200) {
+    if (resp.statusCode != 204 && 
+        resp.statusCode != 200 && 
+        resp.statusCode != 410 && 
+        resp.statusCode != 404) {
       throw Exception('Failed to delete calendar event: ${resp.body}');
     }
   }

@@ -1,54 +1,58 @@
-// lib/presentation/providers/task_provider.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/database/task_model_hive.dart';
 import '../../data/repositories/local_task_repository.dart';
 import '../../services/calendar_service.dart';
 import '../../services/notification_service.dart';
-import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../data/repositories/task_repository.dart';
 import '../../data/models/task_model.dart';
 
-// ─── Local Task Repository Provider ─────────────────────────────────────────
-
-final localTaskRepositoryProvider = Provider<LocalTaskRepository>((ref) {
-  final authState = ref.watch(authStateStreamProvider);
-  final user = authState.valueOrNull;
-  // TEMP: Fall back to a guest repo during UI testing (no auth)
-  return LocalTaskRepository(userId: user?.uid ?? 'guest');
-});
-
-// ─── Calendar Service Provider ───────────────────────────────────────────────
-
-final calendarServiceProvider = Provider<CalendarService>((ref) {
-  // CalendarService needs the concrete impl for getAccessCredentials()
-  final authRepo = ref.watch(authRepositoryProvider);
-  return CalendarService(authRepo);
-});
-
-// ─── Task Repository Provider ─────────────────────────────────────────────────
-
-final taskRepositoryProvider = Provider<TaskRepository>((ref) {
-  final authState = ref.watch(authStateStreamProvider);
-  final user = authState.valueOrNull;
-  return TaskRepository(userId: user?.uid ?? 'guest');
-});
-
 // ─── Tasks Notifier (local Hive + Firebase Sync) ────────────────────────────
 
-class TasksNotifier extends StateNotifier<List<TaskModelHive>> {
-  final LocalTaskRepository _localRepo;
-  final TaskRepository _remoteRepo;
-  final CalendarService _calendar;
-  final String userId;
+class TasksNotifier extends ChangeNotifier {
+  LocalTaskRepository _localRepo;
+  TaskRepository _remoteRepo;
+  CalendarService _calendar;
+  String userId;
 
   StreamSubscription? _remoteTasksSubscription;
+  List<TaskModelHive> _tasks = [];
 
-  TasksNotifier(this._localRepo, this._remoteRepo, this._calendar, this.userId)
-      : super(_localRepo.getTasks()) {
+  List<TaskModelHive> get tasks => _tasks;
+
+  List<TaskModelHive> get completedTasks => _tasks.where((t) => t.isCompleted).toList();
+  List<TaskModelHive> get pendingTasks => _tasks.where((t) => !t.isCompleted).toList();
+  
+  List<TaskModelHive> get upcomingTasks {
+    final now = DateTime.now();
+    return pendingTasks.where((t) => t.scheduledAt.isAfter(now)).toList()
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+  }
+
+  List<TaskModelHive> get overdueTasks {
+    final now = DateTime.now();
+    return pendingTasks.where((t) => t.scheduledAt.isBefore(now)).toList()
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+  }
+
+  TasksNotifier(this._localRepo, this._remoteRepo, this._calendar, this.userId) {
+    _tasks = _localRepo.getTasks();
     _initSync();
+  }
+
+  void updateDependencies(String newUserId, LocalTaskRepository localRepo, TaskRepository remoteRepo, CalendarService calendar) {
+    _localRepo = localRepo;
+    _remoteRepo = remoteRepo;
+    _calendar = calendar;
+
+    if (userId != newUserId) {
+      userId = newUserId;
+      _remoteTasksSubscription?.cancel();
+      _tasks = _localRepo.getTasks();
+      _initSync();
+      notifyListeners();
+    }
   }
 
   void _initSync() {
@@ -70,10 +74,6 @@ class TasksNotifier extends StateNotifier<List<TaskModelHive>> {
           _localRepo.updateTask(localTask);
         }
         
-        // Remove local tasks that are not in remote (if you want full mirrored state)
-        // To prevent overriding unsynced local tasks, we skip deletion logic for now
-        // and just update/add what comes from Firebase.
-
         refresh();
       },
       onError: (e) {
@@ -89,7 +89,8 @@ class TasksNotifier extends StateNotifier<List<TaskModelHive>> {
   }
 
   void refresh() {
-    state = _localRepo.getTasks();
+    _tasks = _localRepo.getTasks();
+    notifyListeners();
   }
 
   Future<void> addTask({
@@ -229,41 +230,3 @@ class TasksNotifier extends StateNotifier<List<TaskModelHive>> {
     refresh();
   }
 }
-
-final tasksNotifierProvider =
-    StateNotifierProvider<TasksNotifier, List<TaskModelHive>>((ref) {
-  final localRepo = ref.watch(localTaskRepositoryProvider);
-  final remoteRepo = ref.watch(taskRepositoryProvider);
-  final calendar = ref.watch(calendarServiceProvider);
-  final authState = ref.watch(authStateStreamProvider);
-  final user = authState.valueOrNull;
-
-  // TEMP: Use 'guest' userId during UI testing (no auth)
-  return TasksNotifier(localRepo, remoteRepo, calendar, user?.uid ?? 'guest');
-});
-
-// ─── Derived providers ────────────────────────────────────────────────────────
-
-final completedTasksProvider = Provider<List<TaskModelHive>>((ref) {
-  final tasks = ref.watch(tasksNotifierProvider);
-  return tasks.where((t) => t.isCompleted).toList();
-});
-
-final pendingTasksProvider = Provider<List<TaskModelHive>>((ref) {
-  final tasks = ref.watch(tasksNotifierProvider);
-  return tasks.where((t) => !t.isCompleted).toList();
-});
-
-final upcomingTasksProvider = Provider<List<TaskModelHive>>((ref) {
-  final tasks = ref.watch(pendingTasksProvider);
-  final now = DateTime.now();
-  return tasks.where((t) => t.scheduledAt.isAfter(now)).toList()
-    ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-});
-
-final overdueTasksProvider = Provider<List<TaskModelHive>>((ref) {
-  final tasks = ref.watch(pendingTasksProvider);
-  final now = DateTime.now();
-  return tasks.where((t) => t.scheduledAt.isBefore(now)).toList()
-    ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-});

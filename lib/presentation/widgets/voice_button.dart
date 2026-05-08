@@ -1,27 +1,28 @@
 // lib/presentation/widgets/voice_button.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../services/voice_service.dart';
 import '../../services/task_parser_service.dart';
 
-class VoiceButton extends ConsumerStatefulWidget {
+class VoiceButton extends StatefulWidget {
   final Function(String text)? onTextCaptured;
   final Function(ParsedTask task)? onParsed;
   final bool enableParsing;
+  final bool isCompact;
 
   const VoiceButton({
     this.onTextCaptured,
     this.onParsed,
     this.enableParsing = true,
+    this.isCompact = false,
     super.key,
   });
 
   @override
-  ConsumerState<VoiceButton> createState() => _VoiceButtonState();
+  State<VoiceButton> createState() => _VoiceButtonState();
 }
 
-class _VoiceButtonState extends ConsumerState<VoiceButton>
+class _VoiceButtonState extends State<VoiceButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   bool _isListening = false;
@@ -100,8 +101,13 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
 
   @override
   Widget build(BuildContext context) {
+    final double buttonSize = widget.isCompact ? 40.0 : 72.0;
+    final double pulseSize = widget.isCompact ? 48.0 : 72.0;
+    final double iconSize = widget.isCompact ? 20.0 : 32.0;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         AnimatedBuilder(
           animation: _pulseController,
@@ -117,13 +123,13 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
                   // Pulse ring while listening
                   if (_isListening)
                     Container(
-                      width: 72,
-                      height: 72,
+                      width: pulseSize,
+                      height: pulseSize,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: AppColors.primary.withValues(alpha: 0.3),
-                          width: 3,
+                          width: widget.isCompact ? 2 : 3,
                         ),
                       ),
                     ),
@@ -131,8 +137,8 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
                     onTap: _toggleListening,
                     onLongPress: _switchLocale,
                     child: Container(
-                      width: 72,
-                      height: 72,
+                      width: buttonSize,
+                      height: buttonSize,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: _isListening
@@ -149,8 +155,8 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
                                     ? AppColors.error
                                     : AppColors.primary)
                                 .withValues(alpha: 0.5),
-                            blurRadius: _isListening ? 28 : 12,
-                            spreadRadius: _isListening ? 6 : 2,
+                            blurRadius: _isListening ? (widget.isCompact ? 12 : 28) : (widget.isCompact ? 6 : 12),
+                            spreadRadius: _isListening ? (widget.isCompact ? 2 : 6) : (widget.isCompact ? 1 : 2),
                           ),
                         ],
                       ),
@@ -161,7 +167,7 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
                                 ? Icons.volume_up_rounded
                                 : Icons.mic_rounded,
                         color: Colors.white,
-                        size: 32,
+                        size: iconSize,
                       ),
                     ),
                   ),
@@ -170,42 +176,44 @@ class _VoiceButtonState extends ConsumerState<VoiceButton>
             );
           },
         ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedOpacity(
-              opacity: _isListening ? 1.0 : 0.5,
-              duration: const Duration(milliseconds: 300),
-              child: Text(
-                _statusText,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            GestureDetector(
-              onTap: _switchLocale,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
+        if (!widget.isCompact) ...[
+          const SizedBox(height: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedOpacity(
+                opacity: _isListening ? 1.0 : 0.5,
+                duration: const Duration(milliseconds: 300),
                 child: Text(
-                  _currentLocale == TtsLocale.arabic ? 'EN' : 'ع',
+                  _statusText,
                   style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: _switchLocale,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _currentLocale == TtsLocale.arabic ? 'EN' : 'ع',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

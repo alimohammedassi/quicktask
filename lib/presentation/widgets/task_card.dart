@@ -7,7 +7,6 @@
 //  Interactions: press-scale + haptics, swipe-delete glow
 // ══════════════════════════════════════════════════════════════
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -33,7 +32,6 @@ class _G {
   static const gold = AppColors.warning;
   static const emerald = AppColors.success;
   static const rose = AppColors.error;
-  static const sky = AppColors.primaryLight;
 
   // Typography
   static const t1 = AppColors.textPrimary;
@@ -75,8 +73,9 @@ extension _StateX on _State {
 class TaskCard extends StatefulWidget {
   final TaskEntity task;
   final VoidCallback onDelete;
+  final VoidCallback? onToggleComplete;
 
-  const TaskCard({required this.task, required this.onDelete, super.key});
+  const TaskCard({required this.task, required this.onDelete, this.onToggleComplete, super.key});
 
   @override
   State<TaskCard> createState() => _TaskCardState();
@@ -108,9 +107,8 @@ class _TaskCardState extends State<TaskCard>
   }
 
   _State get _cardState {
-    if (widget.task.isCompleted || widget.task.scheduledAt.isBefore(DateTime.now())) {
-      return _State.completed;
-    }
+    if (widget.task.isCompleted) return _State.completed;
+    if (widget.task.scheduledAt.isBefore(DateTime.now())) return _State.overdue;
     if (widget.task.isSyncedToCalendar) return _State.synced;
     return _State.upcoming;
   }
@@ -118,15 +116,33 @@ class _TaskCardState extends State<TaskCard>
   @override
   Widget build(BuildContext context) {
     final cs = _cardState;
+    final bool isDone = widget.task.isCompleted;
 
     return Dismissible(
       key: Key(widget.task.id),
-      direction: DismissDirection.endToStart,
-      background: _DeleteBg(accent: cs.accent),
-      confirmDismiss: (_) async {
+      direction: DismissDirection.horizontal,
+      background: _ActionBg(
+        color: _G.emerald,
+        icon: isDone ? Icons.remove_done_rounded : Icons.check_circle_outline_rounded,
+        label: isDone ? 'UNDO' : 'DONE',
+        alignment: AlignmentDirectional.centerStart,
+      ),
+      secondaryBackground: const _ActionBg(
+        color: _G.rose,
+        icon: Icons.delete_outline_rounded,
+        label: 'DELETE',
+        alignment: AlignmentDirectional.centerEnd,
+      ),
+      confirmDismiss: (direction) async {
         HapticFeedback.mediumImpact();
-        widget.onDelete();
-        return true;
+        if (direction == DismissDirection.endToStart) {
+          widget.onDelete();
+          return true;
+        } else if (direction == DismissDirection.startToEnd) {
+          widget.onToggleComplete?.call();
+          return false;
+        }
+        return false;
       },
       child: GestureDetector(
         onTapDown: (_) {
@@ -143,6 +159,7 @@ class _TaskCardState extends State<TaskCard>
               cs: cs,
               task: widget.task,
               onDelete: widget.onDelete,
+              onToggleComplete: widget.onToggleComplete,
               glow: _glow),
         ),
       ),
@@ -158,16 +175,17 @@ class _Shell extends StatelessWidget {
     required this.cs,
     required this.task,
     required this.onDelete,
+    this.onToggleComplete,
     required this.glow,
   });
 
   final _State cs;
   final TaskEntity task;
   final VoidCallback onDelete;
+  final VoidCallback? onToggleComplete;
   final Animation<double> glow;
 
   bool get _done => task.isCompleted;
-  bool get _past => task.scheduledAt.isBefore(DateTime.now());
 
   @override
   Widget build(BuildContext context) {
@@ -194,24 +212,22 @@ class _Shell extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(22),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                stops: const [0.0, 0.4, 1.0],
-                colors: [
-                  _G.s2.withValues(alpha: 0.92),
-                  _G.s1.withValues(alpha: 0.88),
-                  _G.s0.withValues(alpha: 0.94),
-                ],
-              ),
-              border: Border.all(color: _G.border, width: 0.8),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              stops: const [0.0, 0.4, 1.0],
+              colors: [
+                _G.s2.withValues(alpha: 0.92),
+                _G.s1.withValues(alpha: 0.88),
+                _G.s0.withValues(alpha: 0.94),
+              ],
             ),
-            child: Stack(
+            border: Border.all(color: _G.border, width: 0.8),
+          ),
+          child: Stack(
               children: [
                 // Top shine band
                 Positioned(
@@ -220,13 +236,13 @@ class _Shell extends StatelessWidget {
                   right: 0,
                   child: Container(
                     height: 52,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       borderRadius:
-                          const BorderRadius.vertical(top: Radius.circular(22)),
+                          BorderRadius.vertical(top: Radius.circular(22)),
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [_G.shine, const Color(0x00000000)],
+                        colors: [_G.shine, Color(0x00000000)],
                       ),
                     ),
                   ),
@@ -285,7 +301,7 @@ class _Shell extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _Orb(cs: cs),
+                      _Orb(cs: cs, onTap: onToggleComplete),
                       const SizedBox(width: 13),
                       Expanded(
                         child: Column(
@@ -299,7 +315,7 @@ class _Shell extends StatelessWidget {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: (_done || (_past && !_done))
+                                color: _done
                                     ? _G.t3
                                     : _G.t1,
                                 fontWeight: FontWeight.w700,
@@ -339,7 +355,6 @@ class _Shell extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
           ),
         ),
       ),
@@ -351,30 +366,37 @@ class _Shell extends StatelessWidget {
 //  Status orb — glowing icon chip
 // ─────────────────────────────────────────────────────────────
 class _Orb extends StatelessWidget {
-  const _Orb({required this.cs});
+  const _Orb({required this.cs, this.onTap});
   final _State cs;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: cs.accent.withValues(alpha: 0.10),
-        border: Border.all(
-          color: cs.accent.withValues(alpha: 0.28),
-          width: 0.8,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: cs.accent.withValues(alpha: 0.25),
-            blurRadius: 14,
-            spreadRadius: -3,
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        onTap?.call();
+      },
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: cs.accent.withValues(alpha: 0.10),
+          border: Border.all(
+            color: cs.accent.withValues(alpha: 0.28),
+            width: 0.8,
           ),
-        ],
+          boxShadow: [
+            BoxShadow(
+              color: cs.accent.withValues(alpha: 0.25),
+              blurRadius: 14,
+              spreadRadius: -3,
+            ),
+          ],
+        ),
+        child: Icon(cs.icon, color: cs.accent, size: 20),
       ),
-      child: Icon(cs.icon, color: cs.accent, size: 20),
     );
   }
 }
@@ -482,12 +504,12 @@ class _SyncChip extends StatelessWidget {
         color: _G.gold.withValues(alpha: 0.10),
         border: Border.all(color: _G.gold.withValues(alpha: 0.28), width: 0.8),
       ),
-      child: Row(
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.bolt_rounded, size: 10.5, color: _G.gold),
-          const SizedBox(width: 4),
-          const Text(
+          SizedBox(width: 4),
+          Text(
             'SYNCED',
             style: TextStyle(
               color: _G.gold,
@@ -531,68 +553,84 @@ class _CloseBtn extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Swipe delete background
+//  Swipe action background (Delete / Done)
 // ─────────────────────────────────────────────────────────────
-class _DeleteBg extends StatelessWidget {
-  const _DeleteBg({required this.accent});
-  final Color accent;
+class _ActionBg extends StatelessWidget {
+  const _ActionBg({
+    required this.color,
+    required this.icon,
+    required this.label,
+    required this.alignment,
+  });
+
+  final Color color;
+  final IconData icon;
+  final String label;
+  final AlignmentDirectional alignment;
 
   @override
   Widget build(BuildContext context) {
+    final isStart = alignment == AlignmentDirectional.centerStart;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 26),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: LinearGradient(
-              colors: [
-                Colors.transparent,
-                _G.rose.withValues(alpha: 0.12),
-                _G.rose.withValues(alpha: 0.22),
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ),
-            border:
-                Border.all(color: _G.rose.withValues(alpha: 0.22), width: 0.8),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _G.rose.withValues(alpha: 0.14),
-                  border: Border.all(
-                      color: _G.rose.withValues(alpha: 0.3), width: 0.8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _G.rose.withValues(alpha: 0.35),
-                      blurRadius: 16,
-                      spreadRadius: -2,
-                    ),
+      child: Container(
+        alignment: alignment,
+        padding: isStart
+            ? const EdgeInsetsDirectional.only(start: 26)
+            : const EdgeInsetsDirectional.only(end: 26),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          gradient: LinearGradient(
+            begin: AlignmentDirectional.centerStart,
+            end: AlignmentDirectional.centerEnd,
+            colors: isStart
+                ? [
+                    color.withValues(alpha: 0.22),
+                    color.withValues(alpha: 0.12),
+                    Colors.transparent
+                  ]
+                : [
+                    Colors.transparent,
+                    color.withValues(alpha: 0.12),
+                    color.withValues(alpha: 0.22)
                   ],
-                ),
-                child: const Icon(Icons.delete_outline_rounded,
-                    color: _G.rose, size: 19),
-              ),
-              const SizedBox(height: 5),
-              const Text(
-                'DELETE',
-                style: TextStyle(
-                  color: _G.rose,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                ),
-              ),
-            ],
+            stops: const [0.0, 0.5, 1.0],
           ),
+          border: Border.all(color: color.withValues(alpha: 0.22), width: 0.8),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color.withValues(alpha: 0.14),
+                border:
+                    Border.all(color: color.withValues(alpha: 0.3), width: 0.8),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.35),
+                    blurRadius: 16,
+                    spreadRadius: -2,
+                  ),
+                ],
+              ),
+              child: Icon(icon, color: color, size: 19),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ],
         ),
       ),
     );

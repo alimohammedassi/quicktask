@@ -1,32 +1,9 @@
-// lib/features/auth/presentation/providers/auth_provider.dart
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/database/database_service.dart';
 import '../../../../core/database/user_model.dart';
-import '../../data/datasources/firebase_auth_datasource.dart';
-import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/repositories/auth_repository.dart';
-
-// ─── Providers ───────────────────────────────────────────────────────────────
-
-final firebaseAuthDatasourceProvider = Provider<FirebaseAuthDatasource>((ref) {
-  return FirebaseAuthDatasource();
-});
-
-final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepositoryImpl(
-    datasource: ref.watch(firebaseAuthDatasourceProvider),
-  );
-});
-
-final authStateStreamProvider = StreamProvider<User?>((ref) {
-  return ref.watch(authRepositoryProvider).authStateChanges;
-});
-
-final authNotifierProvider =
-    StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(ref.watch(authRepositoryProvider));
-});
 
 // ─── Auth States ─────────────────────────────────────────────────────────────
 
@@ -50,68 +27,103 @@ class AuthError extends AuthState {
 
 // ─── Auth Notifier ────────────────────────────────────────────────────────────
 
-class AuthNotifier extends StateNotifier<AuthState> {
+class AuthNotifier extends ChangeNotifier {
   final AuthRepository _repo;
+  StreamSubscription<User?>? _authSub;
+  
+  AuthState _state = AuthInitial();
+  AuthState get state => _state;
 
-  AuthNotifier(this._repo) : super(AuthInitial());
+  User? _user;
+  User? get user => _user;
+
+  AuthNotifier(this._repo) {
+    _authSub = _repo.authStateChanges.listen((user) {
+      _user = user;
+      if (user != null) {
+        _state = AuthAuthenticated(user);
+      } else {
+        _state = AuthUnauthenticated();
+      }
+      notifyListeners();
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
 
   Future<void> signInWithEmail(String email, String password) async {
-    state = AuthLoading();
+    _state = AuthLoading();
+    notifyListeners();
     try {
       final credential = await _repo.signInWithEmail(email, password);
       await _persistUser(credential.user!);
     } on Exception catch (e) {
-      state = AuthError(_extractMessage(e));
+      _state = AuthError(_extractMessage(e));
+      notifyListeners();
     }
   }
 
   Future<void> signUpWithEmail(String email, String password, {String? displayName}) async {
-    state = AuthLoading();
+    _state = AuthLoading();
+    notifyListeners();
     try {
       final credential = await _repo.signUpWithEmail(email, password, displayName: displayName);
       await _persistUser(credential.user!);
     } on Exception catch (e) {
-      state = AuthError(_extractMessage(e));
+      _state = AuthError(_extractMessage(e));
+      notifyListeners();
     }
   }
 
   Future<void> signInWithGoogle() async {
-    state = AuthLoading();
+    _state = AuthLoading();
+    notifyListeners();
     try {
       final credential = await _repo.signInWithGoogle();
       await _persistUser(credential.user!);
     } on Exception catch (e) {
-      state = AuthError(_extractMessage(e));
+      _state = AuthError(_extractMessage(e));
+      notifyListeners();
     }
   }
 
   Future<void> signOut() async {
-    state = AuthLoading();
+    _state = AuthLoading();
+    notifyListeners();
     try {
-      // Get current Firebase user UID before sign-out
       final currentUid = _repo.currentUser?.uid;
       await _repo.signOut(currentUid);
       if (currentUid != null) {
         await DatabaseService.deleteUser(currentUid);
         await DatabaseService.deleteTasksForUser(currentUid);
       }
-      state = AuthUnauthenticated();
+      // state updates automatically via authStateChanges listener
     } on Exception catch (e) {
-      state = AuthError(_extractMessage(e));
+      _state = AuthError(_extractMessage(e));
+      notifyListeners();
     }
   }
 
   Future<void> sendPasswordReset(String email) async {
-    state = AuthLoading();
+    _state = AuthLoading();
+    notifyListeners();
     try {
       await _repo.sendPasswordResetEmail(email);
+      _state = AuthUnauthenticated();
+      notifyListeners();
     } on Exception catch (e) {
-      state = AuthError(_extractMessage(e));
+      _state = AuthError(_extractMessage(e));
+      notifyListeners();
     }
   }
 
   void resetState() {
-    state = AuthUnauthenticated();
+    _state = AuthUnauthenticated();
+    notifyListeners();
   }
 
   Future<void> _persistUser(User user) async {
@@ -127,7 +139,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       createdAt: DateTime.now(),
     );
     await DatabaseService.saveUser(userModel);
-    state = AuthAuthenticated(user); // ← trigger navigation to /home
+    // state updates automatically via authStateChanges listener
   }
 
   String _extractMessage(Exception e) {
