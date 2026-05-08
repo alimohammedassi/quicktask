@@ -10,6 +10,7 @@ class TaskEntity {
   final String? calendarEventId;
   final DateTime createdAt;
   final bool isCompleted;
+  final List<String> categories;
 
   const TaskEntity({
     required this.id,
@@ -21,6 +22,7 @@ class TaskEntity {
     this.calendarEventId,
     required this.createdAt,
     this.isCompleted = false,
+    this.categories = const [],
   });
 
   TaskEntity copyWith({
@@ -33,6 +35,7 @@ class TaskEntity {
     String? calendarEventId,
     DateTime? createdAt,
     bool? isCompleted,
+    List<String>? categories,
   }) {
     return TaskEntity(
       id: id ?? this.id,
@@ -44,6 +47,7 @@ class TaskEntity {
       calendarEventId: calendarEventId ?? this.calendarEventId,
       createdAt: createdAt ?? this.createdAt,
       isCompleted: isCompleted ?? this.isCompleted,
+      categories: categories ?? this.categories,
     );
   }
 }

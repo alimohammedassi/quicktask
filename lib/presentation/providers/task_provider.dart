@@ -70,6 +70,7 @@ class TasksNotifier extends ChangeNotifier {
             isCompleted: rTask.isCompleted,
             isSyncedToCalendar: rTask.isSyncedToCalendar,
             calendarEventId: rTask.calendarEventId,
+            categories: rTask.categories,
           );
           _localRepo.updateTask(localTask);
         }
@@ -97,6 +98,7 @@ class TasksNotifier extends ChangeNotifier {
     required String title,
     String? description,
     required DateTime scheduledAt,
+    List<String> categories = const [],
   }) async {
     try {
       final id = const Uuid().v4();
@@ -109,6 +111,7 @@ class TasksNotifier extends ChangeNotifier {
         createdAt: DateTime.now(),
         isCompleted: false,
         isSyncedToCalendar: false,
+        categories: categories,
       );
 
       // Save to Local DB First (Offline Support)
@@ -138,6 +141,7 @@ class TasksNotifier extends ChangeNotifier {
           isCompleted: localTask.isCompleted,
           isSyncedToCalendar: localTask.isSyncedToCalendar,
           calendarEventId: localTask.calendarEventId,
+          categories: localTask.categories,
         );
         await _remoteRepo.addTask(rTask);
       } catch (e) {

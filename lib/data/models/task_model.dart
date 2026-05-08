@@ -13,6 +13,7 @@ class TaskModel extends TaskEntity {
     super.calendarEventId,
     required super.createdAt,
     super.isCompleted,
+    super.categories,
   });
 
   factory TaskModel.fromFirestore(DocumentSnapshot doc) {
@@ -27,6 +28,7 @@ class TaskModel extends TaskEntity {
       calendarEventId: data['calendarEventId'],
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       isCompleted: data['isCompleted'] ?? false,
+      categories: List<String>.from(data['categories'] ?? []),
     );
   }
 
@@ -39,5 +41,6 @@ class TaskModel extends TaskEntity {
         'calendarEventId': calendarEventId,
         'createdAt': Timestamp.fromDate(createdAt),
         'isCompleted': isCompleted,
+        'categories': categories,
       };
 }

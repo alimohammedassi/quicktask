@@ -26,13 +26,14 @@ class TaskModelHiveAdapter extends TypeAdapter<TaskModelHive> {
       calendarEventId: fields[6] as String?,
       createdAt: fields[7] as DateTime,
       isCompleted: fields[8] as bool,
+      categories: (fields[9] as List?)?.cast<String>() ?? [],
     );
   }
 
   @override
   void write(BinaryWriter writer, TaskModelHive obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -50,7 +51,9 @@ class TaskModelHiveAdapter extends TypeAdapter<TaskModelHive> {
       ..writeByte(7)
       ..write(obj.createdAt)
       ..writeByte(8)
-      ..write(obj.isCompleted);
+      ..write(obj.isCompleted)
+      ..writeByte(9)
+      ..write(obj.categories);
   }
 
   @override

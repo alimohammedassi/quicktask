@@ -42,6 +42,10 @@ class TaskModelHive extends TaskEntity {
   @override
   final bool isCompleted;
 
+  @HiveField(9)
+  @override
+  final List<String> categories;
+
   TaskModelHive({
     required this.id,
     required this.userId,
@@ -52,6 +56,7 @@ class TaskModelHive extends TaskEntity {
     this.calendarEventId,
     required this.createdAt,
     this.isCompleted = false,
+    this.categories = const [],
   }) : super(
           id: id,
           userId: userId,
@@ -62,6 +67,7 @@ class TaskModelHive extends TaskEntity {
           calendarEventId: calendarEventId,
           createdAt: createdAt,
           isCompleted: isCompleted,
+          categories: categories,
         );
 
   @override
@@ -75,6 +81,7 @@ class TaskModelHive extends TaskEntity {
     String? calendarEventId,
     DateTime? createdAt,
     bool? isCompleted,
+    List<String>? categories,
   }) {
     return TaskModelHive(
       id: id ?? this.id,
@@ -86,6 +93,7 @@ class TaskModelHive extends TaskEntity {
       calendarEventId: calendarEventId ?? this.calendarEventId,
       createdAt: createdAt ?? this.createdAt,
       isCompleted: isCompleted ?? this.isCompleted,
+      categories: categories ?? this.categories,
     );
   }
 }

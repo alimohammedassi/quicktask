@@ -1,5 +1,6 @@
 // lib/features/auth/presentation/widgets/google_sign_in_button.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class GoogleSignInButton extends StatefulWidget {
   final VoidCallback onPressed;
@@ -32,14 +33,15 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
         duration: const Duration(milliseconds: 100),
         child: Container(
           width: double.infinity,
-          height: 52,
+          height: 54,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
             ],
@@ -47,30 +49,36 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               onTap: widget.isLoading ? null : widget.onPressed,
               child: Center(
                 child: widget.isLoading
                     ? const SizedBox(
-                        width: 22,
-                        height: 22,
+                        width: 24,
+                        height: 24,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Color(0xFF4285F4)),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Color(0xFF4285F4),
+                          ),
                         ),
                       )
                     : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          _buildGoogleLogo(),
-                          const SizedBox(width: 12),
+                          SvgPicture.asset(
+                            'assets/google_logo.svg',
+                            width: 24,
+                            height: 24,
+                          ),
+                          const SizedBox(width: 14),
                           const Text(
                             'Continue with Google',
                             style: TextStyle(
-                              color: Color(0xFF1A1A2E),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF1F2937),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
                             ),
                           ),
                         ],
@@ -80,18 +88,6 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildGoogleLogo() {
-    return Image.network(
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png',
-      width: 22,
-      height: 22,
-      errorBuilder: (context, error, stackTrace) {
-        // Fallback if image fails to load
-        return const Icon(Icons.g_mobiledata_rounded, color: Color(0xFF4285F4), size: 32);
-      },
     );
   }
 }

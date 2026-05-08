@@ -26,9 +26,30 @@ class CalendarService {
   Future<String> createEvent(TaskEntity task) async {
     final headers = await _getAuthHeaders();
 
+    // Build description with category tag
+    final categoryLine = task.categories.isNotEmpty
+        ? '🏷 ${task.categories.join(' · ')}\n\n'
+        : '';
+    final description = '$categoryLine${task.description ?? ''}';
+
+    // Map first category → a Google Calendar color id (1-11)
+    final colorMap = {
+      'Work': '9',       // Blueberry
+      'Personal': '6',   // Tangerine
+      'Health': '2',     // Sage
+      'Learning': '5',   // Banana
+      'Finance': '10',   // Basil
+      'Social': '3',     // Grape
+      'Shopping': '7',   // Peacock
+    };
+    final colorId = task.categories.isNotEmpty
+        ? (colorMap[task.categories.first] ?? '1')
+        : '1';
+
     final body = jsonEncode({
       'summary': task.title,
-      'description': task.description ?? '',
+      'description': description.trim(),
+      'colorId': colorId,
       'start': {
         'dateTime': task.scheduledAt.toUtc().toIso8601String(),
         'timeZone': 'Africa/Cairo',

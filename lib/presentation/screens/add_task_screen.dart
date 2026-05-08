@@ -198,8 +198,11 @@ class _AddTaskScreenState extends State<AddTaskScreen>
         if (result.isBefore(now)) result = result.add(const Duration(days: 1));
       case 3:
         result = DateTime(
-          now.year, now.month, now.day + 1,
-          _scheduledAt.hour, _scheduledAt.minute,
+          now.year,
+          now.month,
+          now.day + 1,
+          _scheduledAt.hour,
+          _scheduledAt.minute,
         );
       default:
         result = now.add(_quickTimes[idx].offset);
@@ -230,7 +233,8 @@ class _AddTaskScreenState extends State<AddTaskScreen>
 
     HapticFeedback.lightImpact();
     setState(() {
-      _scheduledAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _scheduledAt =
+          DateTime(date.year, date.month, date.day, time.hour, time.minute);
       _activeQuickIdx = null;
     });
   }
@@ -244,10 +248,12 @@ class _AddTaskScreenState extends State<AddTaskScreen>
             onSurface: _T.textPri,
           ),
           dialogTheme: DialogThemeData(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           ),
           timePickerTheme: TimePickerThemeData(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           ),
         ),
         child: child!,
@@ -264,8 +270,10 @@ class _AddTaskScreenState extends State<AddTaskScreen>
     try {
       await context.read<TasksNotifier>().addTask(
             title: _titleCtrl.text.trim(),
-            description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+            description:
+                _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
             scheduledAt: _scheduledAt,
+            categories: _selectedCategories.toList(),
           );
     } catch (e) {
       if (mounted) _showError('Failed to save task: $e');
@@ -280,7 +288,9 @@ class _AddTaskScreenState extends State<AddTaskScreen>
       content: Row(children: [
         const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
         const SizedBox(width: 10),
-        Expanded(child: Text(msg, style: const TextStyle(fontWeight: FontWeight.w500))),
+        Expanded(
+            child:
+                Text(msg, style: const TextStyle(fontWeight: FontWeight.w500))),
       ]),
       backgroundColor: _T.danger,
       behavior: SnackBarBehavior.floating,
@@ -317,7 +327,8 @@ class _AddTaskScreenState extends State<AddTaskScreen>
                               Navigator.of(context).pop();
                             },
                             child: Container(
-                              width: 40, height: 40,
+                              width: 40,
+                              height: 40,
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
@@ -334,16 +345,17 @@ class _AddTaskScreenState extends State<AddTaskScreen>
                             ),
                           ),
                           const Text('New Task',
-                            style: TextStyle(
-                              color: _T.textPri,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.4,
-                            )),
+                              style: TextStyle(
+                                color: _T.textPri,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
+                              )),
                           GestureDetector(
                             onTap: () {},
                             child: Container(
-                              width: 40, height: 40,
+                              width: 40,
+                              height: 40,
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
@@ -365,370 +377,423 @@ class _AddTaskScreenState extends State<AddTaskScreen>
                   ),
                   SliverPadding(
                     padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPad + 100),
-                    sliver: SliverList(delegate: SliverChildListDelegate([
-
+                    sliver: SliverList(
+                        delegate: SliverChildListDelegate([
                       // ── 1. Voice hero ─────────────────────────────────
-                      _animated(i: 0, child: _VoiceCard(
-                        onTextCaptured: (text) {
-                          HapticFeedback.lightImpact();
-                          setState(() => _titleCtrl.text = text);
-                        },
-                        onParsed: (task) {
-                          HapticFeedback.lightImpact();
-                          setState(() {
-                            _titleCtrl.text = task.title;
-                            if (task.scheduledAt != null) {
-                              _scheduledAt = task.scheduledAt!;
-                              _activeQuickIdx = null;
-                            }
-                          });
-                        },
-                      )),
+                      _animated(
+                          i: 0,
+                          child: _VoiceCard(
+                            onTextCaptured: (text) {
+                              HapticFeedback.lightImpact();
+                              setState(() => _titleCtrl.text = text);
+                            },
+                            onParsed: (task) {
+                              HapticFeedback.lightImpact();
+                              setState(() {
+                                _titleCtrl.text = task.title;
+                                if (task.scheduledAt != null) {
+                                  _scheduledAt = task.scheduledAt!;
+                                  _activeQuickIdx = null;
+                                }
+                              });
+                            },
+                          )),
                       const SizedBox(height: 16),
 
                       // ── 2. Title + description ────────────────────────
-                      _animated(i: 1, child: _Card(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                            child: Row(
-                              children: [
-                                _SectionLabel('Task title'),
-                                const SizedBox(width: 6),
-                                Container(
-                                  width: 6, height: 6,
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle, color: _T.danger),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                            child: TextField(
-                              controller: _titleCtrl,
-                              onChanged: (_) => setState(() {}),
-                              style: const TextStyle(
-                                color: _T.textPri,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                height: 1.5,
-                              ),
-                              cursorColor: _T.accent,
-                              decoration: InputDecoration(
-                                hintText: 'What needs to be done?',
-                                hintStyle: const TextStyle(
-                                  color: _T.textHint,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w400),
-                                filled: true,
-                                fillColor: _T.bg,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.all(_T.radiusSm),
-                                  borderSide: const BorderSide(color: _T.border),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.all(_T.radiusSm),
-                                  borderSide: const BorderSide(color: _T.border),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.all(_T.radiusSm),
-                                  borderSide: const BorderSide(color: _T.accent, width: 1.5),
+                      _animated(
+                          i: 1,
+                          child: _Card(
+                            children: [
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                                child: Row(
+                                  children: [
+                                    _SectionLabel('Task title'),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: const BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: _T.danger),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              textInputAction: TextInputAction.next,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.notes_rounded,
-                                    size: 14, color: _T.textHint),
-                                const SizedBox(width: 6),
-                                const Text('Notes (optional)',
-                                    style: TextStyle(
-                                      color: _T.textHint,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600)),
-                                const Spacer(),
-                                Text('${_titleCtrl.text.length}/80',
-                                    style: const TextStyle(
-                                      fontSize: 11, color: _T.textHint,
-                                      fontFeatures: [FontFeature.tabularFigures()])),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
-                            child: TextField(
-                              controller: _descCtrl,
-                              onChanged: (_) => setState(() {}),
-                              maxLines: 2,
-                              style: const TextStyle(
-                                color: _T.textPri,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w400,
-                                height: 1.5,
-                              ),
-                              cursorColor: _T.accent,
-                              decoration: InputDecoration(
-                                hintText: 'Add details or context...',
-                                hintStyle: const TextStyle(
-                                  color: _T.textHint,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w400),
-                                filled: true,
-                                fillColor: _T.bg,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.all(_T.radiusSm),
-                                  borderSide: const BorderSide(color: _T.border),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.all(_T.radiusSm),
-                                  borderSide: const BorderSide(color: _T.border),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.all(_T.radiusSm),
-                                  borderSide: const BorderSide(color: _T.accent, width: 1.5),
+                              const SizedBox(height: 6),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                                child: TextField(
+                                  controller: _titleCtrl,
+                                  onChanged: (_) => setState(() {}),
+                                  style: const TextStyle(
+                                    color: _T.textPri,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.5,
+                                  ),
+                                  cursorColor: _T.accent,
+                                  decoration: InputDecoration(
+                                    hintText: 'What needs to be done?',
+                                    hintStyle: const TextStyle(
+                                        color: _T.textHint,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w400),
+                                    filled: true,
+                                    fillColor: _T.bg,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 14),
+                                    border: OutlineInputBorder(
+                                      borderRadius:
+                                          BorderRadius.all(_T.radiusSm),
+                                      borderSide:
+                                          const BorderSide(color: _T.border),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius:
+                                          BorderRadius.all(_T.radiusSm),
+                                      borderSide:
+                                          const BorderSide(color: _T.border),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius:
+                                          BorderRadius.all(_T.radiusSm),
+                                      borderSide: const BorderSide(
+                                          color: _T.accent, width: 1.5),
+                                    ),
+                                  ),
+                                  textInputAction: TextInputAction.next,
                                 ),
                               ),
-                            ),
-                          ),
-                        ],
-                      )),
+                              const SizedBox(height: 4),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.notes_rounded,
+                                        size: 14, color: _T.textHint),
+                                    const SizedBox(width: 6),
+                                    const Text('Notes (optional)',
+                                        style: TextStyle(
+                                            color: _T.textHint,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600)),
+                                    const Spacer(),
+                                    Text('${_titleCtrl.text.length}/80',
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            color: _T.textHint,
+                                            fontFeatures: [
+                                              FontFeature.tabularFigures()
+                                            ])),
+                                  ],
+                                ),
+                              ),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 6, 20, 18),
+                                child: TextField(
+                                  controller: _descCtrl,
+                                  onChanged: (_) => setState(() {}),
+                                  maxLines: 2,
+                                  style: const TextStyle(
+                                    color: _T.textPri,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.5,
+                                  ),
+                                  cursorColor: _T.accent,
+                                  decoration: InputDecoration(
+                                    hintText: 'Add details or context...',
+                                    hintStyle: const TextStyle(
+                                        color: _T.textHint,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400),
+                                    filled: true,
+                                    fillColor: _T.bg,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 12),
+                                    border: OutlineInputBorder(
+                                      borderRadius:
+                                          BorderRadius.all(_T.radiusSm),
+                                      borderSide:
+                                          const BorderSide(color: _T.border),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius:
+                                          BorderRadius.all(_T.radiusSm),
+                                      borderSide:
+                                          const BorderSide(color: _T.border),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius:
+                                          BorderRadius.all(_T.radiusSm),
+                                      borderSide: const BorderSide(
+                                          color: _T.accent, width: 1.5),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )),
                       const SizedBox(height: 12),
 
                       // ── 3. Date & Time ───────────────────────────────
-                      _animated(i: 2, child: _Card(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_today_outlined,
-                                    size: 16, color: _T.accent),
-                                const SizedBox(width: 8),
-                                const Text('When',
-                                    style: TextStyle(
-                                      color: _T.textSec,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.5)),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: _DateTimeChip(
-                                    label: 'Date',
-                                    value: _dateLabel,
-                                    icon: Icons.event_outlined,
-                                    color: _T.accent,
-                                    onTap: _pickDateTime,
-                                  ),
+                      _animated(
+                          i: 2,
+                          child: _Card(
+                            children: [
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today_outlined,
+                                        size: 16, color: _T.accent),
+                                    const SizedBox(width: 8),
+                                    const Text('When',
+                                        style: TextStyle(
+                                            color: _T.textSec,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 0.5)),
+                                  ],
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: _DateTimeChip(
-                                    label: 'Time',
-                                    value: DateFormat('h:mm a').format(_scheduledAt),
-                                    icon: Icons.access_time_rounded,
-                                    color: _T.accent,
-                                    onTap: _pickDateTime,
-                                  ),
+                              ),
+                              const SizedBox(height: 12),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: _DateTimeChip(
+                                        label: 'Date',
+                                        value: _dateLabel,
+                                        icon: Icons.event_outlined,
+                                        color: _T.accent,
+                                        onTap: _pickDateTime,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: _DateTimeChip(
+                                        label: 'Time',
+                                        value: DateFormat('h:mm a')
+                                            .format(_scheduledAt),
+                                        icon: Icons.access_time_rounded,
+                                        color: _T.accent,
+                                        onTap: _pickDateTime,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Quick pick',
-                                    style: TextStyle(
-                                      color: _T.textHint,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.5)),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: List.generate(_quickTimes.length, (i) => _QuickChip(
-                                    label: _quickTimes[i].label,
-                                    icon: _quickTimes[i].icon,
-                                    selected: _activeQuickIdx == i,
-                                    onTap: () => _applyQuickTime(i),
-                                  )),
+                              ),
+                              const SizedBox(height: 14),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Quick pick',
+                                        style: TextStyle(
+                                            color: _T.textHint,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.5)),
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: List.generate(
+                                          _quickTimes.length,
+                                          (i) => _QuickChip(
+                                                label: _quickTimes[i].label,
+                                                icon: _quickTimes[i].icon,
+                                                selected: _activeQuickIdx == i,
+                                                onTap: () => _applyQuickTime(i),
+                                              )),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      )),
+                              ),
+                            ],
+                          )),
                       const SizedBox(height: 12),
 
                       // ── 4. Priority ─────────────────────────────────
-                      _animated(i: 3, child: _Card(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
+                      _animated(
+                          i: 3,
+                          child: _Card(
+                            children: [
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 18, 20, 14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(Icons.flag_outlined,
-                                        size: 16, color: _T.accent),
-                                    const SizedBox(width: 8),
-                                    const Text('Priority',
-                                        style: TextStyle(
-                                          color: _T.textSec,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 0.5)),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.flag_outlined,
+                                            size: 16, color: _T.accent),
+                                        const SizedBox(width: 8),
+                                        const Text('Priority',
+                                            style: TextStyle(
+                                                color: _T.textSec,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: 0.5)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    Row(children: [
+                                      _PriorityBtn(
+                                        label: 'Low',
+                                        color: _T.success,
+                                        bgColor: _T.successBg,
+                                        selected: _priority == _Priority.low,
+                                        icon: Icons.arrow_downward_rounded,
+                                        onTap: () {
+                                          HapticFeedback.selectionClick();
+                                          setState(
+                                              () => _priority = _Priority.low);
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
+                                      _PriorityBtn(
+                                        label: 'Medium',
+                                        color: _T.warn,
+                                        bgColor: _T.warnBg,
+                                        selected: _priority == _Priority.medium,
+                                        icon: Icons.remove_rounded,
+                                        onTap: () {
+                                          HapticFeedback.selectionClick();
+                                          setState(() =>
+                                              _priority = _Priority.medium);
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
+                                      _PriorityBtn(
+                                        label: 'High',
+                                        color: _T.danger,
+                                        bgColor: _T.dangerBg,
+                                        selected: _priority == _Priority.high,
+                                        icon: Icons.arrow_upward_rounded,
+                                        onTap: () {
+                                          HapticFeedback.selectionClick();
+                                          setState(
+                                              () => _priority = _Priority.high);
+                                        },
+                                      ),
+                                    ]),
                                   ],
                                 ),
-                                const SizedBox(height: 14),
-                                Row(children: [
-                                  _PriorityBtn(
-                                    label: 'Low',
-                                    color: _T.success,
-                                    bgColor: _T.successBg,
-                                    selected: _priority == _Priority.low,
-                                    icon: Icons.arrow_downward_rounded,
-                                    onTap: () {
-                                      HapticFeedback.selectionClick();
-                                      setState(() => _priority = _Priority.low);
-                                    },
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _PriorityBtn(
-                                    label: 'Medium',
-                                    color: _T.warn,
-                                    bgColor: _T.warnBg,
-                                    selected: _priority == _Priority.medium,
-                                    icon: Icons.remove_rounded,
-                                    onTap: () {
-                                      HapticFeedback.selectionClick();
-                                      setState(() => _priority = _Priority.medium);
-                                    },
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _PriorityBtn(
-                                    label: 'High',
-                                    color: _T.danger,
-                                    bgColor: _T.dangerBg,
-                                    selected: _priority == _Priority.high,
-                                    icon: Icons.arrow_upward_rounded,
-                                    onTap: () {
-                                      HapticFeedback.selectionClick();
-                                      setState(() => _priority = _Priority.high);
-                                    },
-                                  ),
-                                ]),
-                              ],
-                            ),
-                          ),
-                        ],
-                      )),
+                              ),
+                            ],
+                          )),
                       const SizedBox(height: 12),
 
                       // ── 5. Reminder + Sync + Category ────────────────
-                      _animated(i: 4, child: _Card(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              children: [
-                                _SettingRow(
-                                  icon: Icons.notifications_outlined,
-                                  iconBg: _T.accentLight,
-                                  iconColor: _T.accent,
-                                  label: 'Reminder',
-                                  value: _reminderOptions[_reminderIdx],
-                                  onTap: () {
-                                    HapticFeedback.selectionClick();
-                                    setState(() =>
-                                        _reminderIdx = (_reminderIdx + 1) % _reminderOptions.length);
-                                  },
-                                ),
-                                Container(height: 1, color: _T.border, margin: const EdgeInsets.symmetric(vertical: 4)),
-                                _SettingRow(
-                                  icon: Icons.calendar_month_outlined,
-                                  iconBg: const Color(0xFFF0FDF4),
-                                  iconColor: _T.success,
-                                  label: 'Google Calendar',
-                                  value: _calSync ? 'On' : 'Off',
-                                  valueColor: _calSync ? _T.success : _T.textHint,
-                                  onTap: () {
-                                    HapticFeedback.selectionClick();
-                                    setState(() => _calSync = !_calSync);
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Row(
+                      _animated(
+                          i: 4,
+                          child: _Card(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
                                   children: [
-                                    Icon(Icons.category_outlined,
-                                        size: 16, color: _T.accent),
-                                    SizedBox(width: 8),
-                                    Text('Category',
-                                        style: TextStyle(
-                                          color: _T.textSec,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 0.5)),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    ..._categories.map((cat) => _CategoryChip(
-                                      label: cat.label,
-                                      icon: cat.icon,
-                                      color: cat.color,
-                                      selected: _selectedCategories.contains(cat.label),
+                                    _SettingRow(
+                                      icon: Icons.notifications_outlined,
+                                      iconBg: _T.accentLight,
+                                      iconColor: _T.accent,
+                                      label: 'Reminder',
+                                      value: _reminderOptions[_reminderIdx],
                                       onTap: () {
                                         HapticFeedback.selectionClick();
-                                        setState(() {
-                                          if (_selectedCategories.contains(cat.label)) {
-                                            _selectedCategories.remove(cat.label);
-                                          } else {
-                                            _selectedCategories.add(cat.label);
-                                          }
-                                        });
+                                        setState(() => _reminderIdx =
+                                            (_reminderIdx + 1) %
+                                                _reminderOptions.length);
                                       },
-                                    )),
-                                    _AddCategoryChip(onTap: () {}),
+                                    ),
+                                    Container(
+                                        height: 1,
+                                        color: _T.border,
+                                        margin: const EdgeInsets.symmetric(
+                                            vertical: 4)),
+                                    _SettingRow(
+                                      icon: Icons.calendar_month_outlined,
+                                      iconBg: const Color(0xFFF0FDF4),
+                                      iconColor: _T.success,
+                                      label: 'Google Calendar',
+                                      value: _calSync ? 'On' : 'Off',
+                                      valueColor:
+                                          _calSync ? _T.success : _T.textHint,
+                                      onTap: () {
+                                        HapticFeedback.selectionClick();
+                                        setState(() => _calSync = !_calSync);
+                                      },
+                                    ),
                                   ],
                                 ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      )),
+                              ),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.category_outlined,
+                                            size: 16, color: _T.accent),
+                                        SizedBox(width: 8),
+                                        Text('Category',
+                                            style: TextStyle(
+                                                color: _T.textSec,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: 0.5)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        ..._categories.map((cat) =>
+                                            _CategoryChip(
+                                              label: cat.label,
+                                              icon: cat.icon,
+                                              color: cat.color,
+                                              selected: _selectedCategories
+                                                  .contains(cat.label),
+                                              onTap: () {
+                                                HapticFeedback.selectionClick();
+                                                setState(() {
+                                                  if (_selectedCategories
+                                                      .contains(cat.label)) {
+                                                    _selectedCategories
+                                                        .remove(cat.label);
+                                                  } else {
+                                                    _selectedCategories
+                                                        .add(cat.label);
+                                                  }
+                                                });
+                                              },
+                                            )),
+                                        _AddCategoryChip(onTap: () {}),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )),
                       const SizedBox(height: 24),
                     ])),
                   ),
@@ -1011,37 +1076,6 @@ class _SettingRow extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(children: [
-          Container(
-            width: 34, height: 34,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: iconColor, size: 16),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: _T.textPri)),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: _T.bg,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _T.border),
-            ),
-            child: Text(value,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: valueColor ?? _T.textSec)),
-          ),
-        ]),
       ),
     );
   }
@@ -1146,8 +1180,7 @@ class _VoiceCard extends StatefulWidget {
   State<_VoiceCard> createState() => _VoiceCardState();
 }
 
-class _VoiceCardState extends State<_VoiceCard>
-    with TickerProviderStateMixin {
+class _VoiceCardState extends State<_VoiceCard> with TickerProviderStateMixin {
   bool _listening = false;
   late AnimationController _waveCtrl;
   final VoiceService _voice = VoiceService();
@@ -1157,7 +1190,8 @@ class _VoiceCardState extends State<_VoiceCard>
   @override
   void initState() {
     super.initState();
-    _waveCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+    _waveCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900));
   }
 
   @override
@@ -1198,7 +1232,9 @@ class _VoiceCardState extends State<_VoiceCard>
   Future<void> _switchLocale() async {
     HapticFeedback.lightImpact();
     setState(() {
-      _currentLocale = _currentLocale == TtsLocale.english ? TtsLocale.arabic : TtsLocale.english;
+      _currentLocale = _currentLocale == TtsLocale.english
+          ? TtsLocale.arabic
+          : TtsLocale.english;
     });
     await _voice.setLocale(_currentLocale);
   }
@@ -1223,7 +1259,9 @@ class _VoiceCardState extends State<_VoiceCard>
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: (_listening ? const Color(0xFF4338CA) : const Color(0xFF6366F1))
+              color: (_listening
+                      ? const Color(0xFF4338CA)
+                      : const Color(0xFF6366F1))
                   .withValues(alpha: 0.35),
               blurRadius: _listening ? 24 : 16,
               offset: const Offset(0, 6),
@@ -1237,7 +1275,8 @@ class _VoiceCardState extends State<_VoiceCard>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
@@ -1264,7 +1303,8 @@ class _VoiceCardState extends State<_VoiceCard>
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
@@ -1284,7 +1324,9 @@ class _VoiceCardState extends State<_VoiceCard>
             Text(
               _listening
                   ? (isAr ? 'جاري الاستماع...' : 'Listening… speak now')
-                  : (isAr ? 'انقر لتسجيل مهمة صوتياً' : 'Tap to speak your task'),
+                  : (isAr
+                      ? 'انقر لتسجيل مهمة صوتياً'
+                      : 'Tap to speak your task'),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -1296,7 +1338,8 @@ class _VoiceCardState extends State<_VoiceCard>
               const SizedBox(height: 6),
               Text(
                 isAr ? 'اضغط مطولاً لتغيير اللغة' : 'Hold to switch language',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
+                style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
               ),
             ],
             const SizedBox(height: 18),
@@ -1306,14 +1349,17 @@ class _VoiceCardState extends State<_VoiceCard>
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(100),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.mic_rounded, size: 16, color: Colors.white.withValues(alpha: 0.9)),
+                        Icon(Icons.mic_rounded,
+                            size: 16,
+                            color: Colors.white.withValues(alpha: 0.9)),
                         const SizedBox(width: 8),
                         Text(
                           isAr ? 'اضغط للتحدث' : 'Tap to speak',
@@ -1489,9 +1535,10 @@ class _SubmitButtonState extends State<_SubmitButton>
                 ? const Center(
                     key: ValueKey('loading'),
                     child: SizedBox(
-                      width: 24, height: 24,
+                      width: 24,
+                      height: 24,
                       child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2.5),
+                          color: Colors.white, strokeWidth: 2.5),
                     ),
                   )
                 : Center(

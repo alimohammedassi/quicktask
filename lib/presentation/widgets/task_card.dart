@@ -451,6 +451,17 @@ class _Footer extends StatelessWidget {
   final TaskEntity task;
   final _State cs;
 
+  // Map category → icon + color
+  static const _catMeta = {
+    'Work':     (Icons.work_rounded,         Color(0xFF6366F1)),
+    'Personal': (Icons.person_rounded,        Color(0xFFF97316)),
+    'Health':   (Icons.favorite_rounded,      Color(0xFF22C55E)),
+    'Learning': (Icons.school_rounded,        Color(0xFFEAB308)),
+    'Finance':  (Icons.account_balance_wallet_rounded, Color(0xFF0EA5E9)),
+    'Social':   (Icons.people_rounded,        Color(0xFFA855F7)),
+    'Shopping': (Icons.shopping_bag_rounded,  Color(0xFFEC4899)),
+  };
+
   @override
   Widget build(BuildContext context) {
     return Wrap(
@@ -487,8 +498,37 @@ class _Footer extends StatelessWidget {
             ],
           ),
         ),
-        if (task.isSyncedToCalendar)
-          _SyncChip(),
+        // Category chips
+        ...task.categories.map((cat) {
+          final meta = _catMeta[cat];
+          final color = meta?.$2 ?? const Color(0xFF6366F1);
+          final icon  = meta?.$1 ?? Icons.label_rounded;
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
+              color: color.withValues(alpha: 0.10),
+              border: Border.all(color: color.withValues(alpha: 0.28), width: 0.8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 9.5, color: color),
+                const SizedBox(width: 4),
+                Text(
+                  cat.toUpperCase(),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+        if (task.isSyncedToCalendar) _SyncChip(),
       ],
     );
   }
