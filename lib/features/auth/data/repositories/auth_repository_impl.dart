@@ -1,14 +1,14 @@
 // lib/features/auth/data/repositories/auth_repository_impl.dart
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:googleapis_auth/auth_io.dart';
 import '../../domain/repositories/auth_repository.dart';
-import '../datasources/firebase_auth_datasource.dart';
+import '../datasources/supabase_auth_datasource.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  final FirebaseAuthDatasource _datasource;
+  final SupabaseAuthDatasource _datasource;
 
-  AuthRepositoryImpl({FirebaseAuthDatasource? datasource})
-      : _datasource = datasource ?? FirebaseAuthDatasource();
+  AuthRepositoryImpl({SupabaseAuthDatasource? datasource})
+      : _datasource = datasource ?? SupabaseAuthDatasource();
 
   @override
   Future<AccessCredentials?> getAccessCredentials() {
@@ -16,17 +16,17 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<UserCredential> signInWithEmail(String email, String password) {
+  Future<AuthResponse> signInWithEmail(String email, String password) {
     return _datasource.signInWithEmail(email, password);
   }
 
   @override
-  Future<UserCredential> signUpWithEmail(String email, String password, {String? displayName}) {
+  Future<AuthResponse> signUpWithEmail(String email, String password, {String? displayName}) {
     return _datasource.signUpWithEmail(email, password, displayName: displayName);
   }
 
   @override
-  Future<UserCredential> signInWithGoogle() {
+  Future<AuthResponse> signInWithGoogle() {
     return _datasource.signInWithGoogle();
   }
 

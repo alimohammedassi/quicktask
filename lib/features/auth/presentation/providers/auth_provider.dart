@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../core/database/database_service.dart';
 import '../../../../core/database/user_model.dart';
@@ -95,7 +95,7 @@ class AuthNotifier extends ChangeNotifier {
     _state = AuthLoading();
     notifyListeners();
     try {
-      final currentUid = _repo.currentUser?.uid;
+      final currentUid = _repo.currentUser?.id;
       await _repo.signOut(currentUid);
       if (currentUid != null) {
         await DatabaseService.deleteUser(currentUid);
@@ -127,14 +127,14 @@ class AuthNotifier extends ChangeNotifier {
   }
 
   Future<void> _persistUser(User user) async {
-    final provider = user.providerData.isNotEmpty
-        ? user.providerData.first.providerId
-        : 'email';
+    final providers = user.appMetadata['providers'] as List<dynamic>?;
+    final provider = (providers != null && providers.isNotEmpty) ? providers.first.toString() : 'email';
+    
     final userModel = UserModel(
-      uid: user.uid,
+      uid: user.id,
       email: user.email ?? '',
-      displayName: user.displayName,
-      photoUrl: user.photoURL,
+      displayName: user.userMetadata?['display_name'],
+      photoUrl: user.userMetadata?['avatar_url'],
       provider: provider,
       createdAt: DateTime.now(),
     );

@@ -74,8 +74,15 @@ class TaskCard extends StatefulWidget {
   final TaskEntity task;
   final VoidCallback onDelete;
   final VoidCallback? onToggleComplete;
+  final VoidCallback? onTap;
 
-  const TaskCard({required this.task, required this.onDelete, this.onToggleComplete, super.key});
+  const TaskCard({
+    required this.task,
+    required this.onDelete,
+    this.onToggleComplete,
+    this.onTap,
+    super.key,
+  });
 
   @override
   State<TaskCard> createState() => _TaskCardState();
@@ -150,6 +157,10 @@ class _TaskCardState extends State<TaskCard>
           _ctrl.forward();
         },
         onTapUp: (_) => _ctrl.reverse(),
+        onTap: () {
+          _ctrl.reverse();
+          widget.onTap?.call();
+        },
         onTapCancel: () => _ctrl.reverse(),
         child: AnimatedBuilder(
           animation: _ctrl,

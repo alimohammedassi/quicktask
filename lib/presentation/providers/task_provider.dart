@@ -3,20 +3,18 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/database/task_model_hive.dart';
 import '../../data/repositories/local_task_repository.dart';
+import '../../data/repositories/supabase_task_repository.dart';
 import '../../services/calendar_service.dart';
 import '../../services/notification_service.dart';
-import '../../data/repositories/task_repository.dart';
-import '../../data/models/task_model.dart';
 
-// ─── Tasks Notifier (local Hive + Firebase Sync) ────────────────────────────
+// ─── Tasks Notifier (local Hive) ────────────────────────────
 
 class TasksNotifier extends ChangeNotifier {
   LocalTaskRepository _localRepo;
-  TaskRepository _remoteRepo;
+  SupabaseTaskRepository _supabaseRepo;
   CalendarService _calendar;
   String userId;
 
-  StreamSubscription? _remoteTasksSubscription;
   List<TaskModelHive> _tasks = [];
 
   List<TaskModelHive> get tasks => _tasks;
@@ -36,57 +34,36 @@ class TasksNotifier extends ChangeNotifier {
       ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
   }
 
-  TasksNotifier(this._localRepo, this._remoteRepo, this._calendar, this.userId) {
+  TasksNotifier(this._localRepo, this._supabaseRepo, this._calendar, this.userId) {
     _tasks = _localRepo.getTasks();
-    _initSync();
+    _syncFromSupabase();
   }
 
-  void updateDependencies(String newUserId, LocalTaskRepository localRepo, TaskRepository remoteRepo, CalendarService calendar) {
+  void updateDependencies(String newUserId, LocalTaskRepository localRepo, SupabaseTaskRepository supabaseRepo, CalendarService calendar) {
     _localRepo = localRepo;
-    _remoteRepo = remoteRepo;
+    _supabaseRepo = supabaseRepo;
     _calendar = calendar;
 
     if (userId != newUserId) {
       userId = newUserId;
-      _remoteTasksSubscription?.cancel();
       _tasks = _localRepo.getTasks();
-      _initSync();
+      _syncFromSupabase();
       notifyListeners();
     }
   }
 
-  void _initSync() {
-    _remoteTasksSubscription = _remoteRepo.watchTasks().listen(
-      (remoteTasks) {
-        // Sync remote to local
-        for (final rTask in remoteTasks) {
-          final localTask = TaskModelHive(
-            id: rTask.id,
-            userId: rTask.userId,
-            title: rTask.title,
-            description: rTask.description,
-            scheduledAt: rTask.scheduledAt,
-            createdAt: rTask.createdAt,
-            isCompleted: rTask.isCompleted,
-            isSyncedToCalendar: rTask.isSyncedToCalendar,
-            calendarEventId: rTask.calendarEventId,
-            categories: rTask.categories,
-          );
-          _localRepo.updateTask(localTask);
-        }
-        
-        refresh();
-      },
-      onError: (e) {
-        debugPrint('Firebase sync error (probably offline): $e');
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _remoteTasksSubscription?.cancel();
-    super.dispose();
+  Future<void> _syncFromSupabase() async {
+    if (userId == 'guest') return;
+    try {
+      final remoteTasks = await _supabaseRepo.getTasks(userId);
+      for (var task in remoteTasks) {
+        await _localRepo.updateTask(task);
+      }
+      _tasks = _localRepo.getTasks();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Sync failed: $e');
+    }
   }
 
   void refresh() {
@@ -117,6 +94,13 @@ class TasksNotifier extends ChangeNotifier {
       // Save to Local DB First (Offline Support)
       await _localRepo.addTask(localTask);
 
+      // Save to Supabase
+      try {
+        await _supabaseRepo.addTask(localTask);
+      } catch (e) {
+        debugPrint('⚠️ Supabase sync failed: $e');
+      }
+
       // Try calendar sync
       try {
         final eventId = await _calendar.createEvent(localTask);
@@ -125,27 +109,11 @@ class TasksNotifier extends ChangeNotifier {
           calendarEventId: eventId,
         );
         await _localRepo.updateTask(localTask);
+        try {
+          await _supabaseRepo.updateTask(localTask);
+        } catch (_) {}
       } catch (e) {
         debugPrint('⚠️ Calendar sync failed (task still saved): $e');
-      }
-
-      // Save to Firebase (Cloud Support - auto retries when online)
-      try {
-        final rTask = TaskModel(
-          id: localTask.id,
-          userId: localTask.userId,
-          title: localTask.title,
-          description: localTask.description,
-          scheduledAt: localTask.scheduledAt,
-          createdAt: localTask.createdAt,
-          isCompleted: localTask.isCompleted,
-          isSyncedToCalendar: localTask.isSyncedToCalendar,
-          calendarEventId: localTask.calendarEventId,
-          categories: localTask.categories,
-        );
-        await _remoteRepo.addTask(rTask);
-      } catch (e) {
-        debugPrint('⚠️ Firebase add failed (offline), saved locally: $e');
       }
 
       await NotificationService.scheduleTaskNotification(localTask);
@@ -164,22 +132,11 @@ class TasksNotifier extends ChangeNotifier {
 
     final updated = _localRepo.getTask(taskId)!;
 
-    // Sync to Firebase
+    // Supabase
     try {
-      final rTask = TaskModel(
-        id: updated.id,
-        userId: updated.userId,
-        title: updated.title,
-        description: updated.description,
-        scheduledAt: updated.scheduledAt,
-        createdAt: updated.createdAt,
-        isCompleted: updated.isCompleted,
-        isSyncedToCalendar: updated.isSyncedToCalendar,
-        calendarEventId: updated.calendarEventId,
-      );
-      await _remoteRepo.updateTask(rTask);
+      await _supabaseRepo.toggleComplete(taskId, updated.isCompleted);
     } catch (e) {
-      debugPrint('⚠️ Firebase toggle failed (offline), toggled locally: $e');
+      debugPrint('Supabase toggle failed: $e');
     }
 
     if (!updated.isCompleted) {
@@ -195,13 +152,13 @@ class TasksNotifier extends ChangeNotifier {
     // Delete locally
     await _localRepo.deleteTask(task.id);
     
-    // Delete from Firebase
+    // Supabase
     try {
-      await _remoteRepo.deleteTask(task.id);
+      await _supabaseRepo.deleteTask(task.id);
     } catch (e) {
-      debugPrint('⚠️ Firebase delete failed (offline), deleted locally: $e');
+      debugPrint('Supabase delete failed: $e');
     }
-
+    
     if (task.calendarEventId != null) {
       await _calendar.deleteEvent(task.calendarEventId!);
     }
@@ -213,24 +170,13 @@ class TasksNotifier extends ChangeNotifier {
     // Update locally
     await _localRepo.updateTask(task);
     
-    // Sync to Firebase
+    // Supabase
     try {
-      final rTask = TaskModel(
-        id: task.id,
-        userId: task.userId,
-        title: task.title,
-        description: task.description,
-        scheduledAt: task.scheduledAt,
-        createdAt: task.createdAt,
-        isCompleted: task.isCompleted,
-        isSyncedToCalendar: task.isSyncedToCalendar,
-        calendarEventId: task.calendarEventId,
-      );
-      await _remoteRepo.updateTask(rTask);
+      await _supabaseRepo.updateTask(task);
     } catch (e) {
-      debugPrint('⚠️ Firebase update failed (offline), updated locally: $e');
+      debugPrint('Supabase update failed: $e');
     }
-
+    
     refresh();
   }
 }

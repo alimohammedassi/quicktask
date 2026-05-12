@@ -1,241 +1,94 @@
-// lib/presentation/screens/home_screen.dart
-//
-// UX/UI Redesign v2:
-//  1. Modern glassmorphism hero card with integrated progress arc
-//  2. Quick stats row (overdue + upcoming count)
-//  3. Enhanced dashboard cards with better iconography
-//  4. Filter chips with pill design
-//  5. Task list with clear visual hierarchy
-//  6. Modern bottom sheet with better quick actions
-//  7. Richer empty state
-//  8. Consistent animation timings
-
+﻿// lib/presentation/screens/home_screen.dart
 import 'dart:math' as math;
 import 'dart:ui';
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
+import '../../domain/models/subtask.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../providers/task_provider.dart';
-import '../widgets/task_card.dart';
-import '../widgets/voice_button.dart';
-import '../../services/task_parser_service.dart';
+import '../providers/current_task_provider.dart';
 import 'add_task_screen.dart';
+import 'task_detail_screen.dart';
+import 'summary_screen.dart';
+import 'profile_screen.dart';
+import '../widgets/task_card.dart';
 import '../../core/database/task_model_hive.dart';
 
-String _getInitials(String name) {
-  if (name.isEmpty) return 'U';
-  final parts = name.trim().split(' ');
-  if (parts.length > 1 && parts[1].isNotEmpty) {
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-  }
-  return parts[0][0].toUpperCase();
-}
+// ─────────────────────────────────────────────────────────────
+// Design tokens (consistent 8dp rhythm)
+// ─────────────────────────────────────────────────────────────
+const _kRadius = 20.0;
+const _kPad = 20.0;
+const _kCardPad = 16.0;
+const _kGap = 14.0;
 
-enum TaskFilter { all, today, completed }
-
-sealed class _ListItem {}
-
-class _LabelItem extends _ListItem {
-  _LabelItem({required this.label, required this.color, required this.count});
-  final String label;
-  final Color color;
-  final int count;
-}
-
-class _TaskItem extends _ListItem {
-  _TaskItem(this.task);
-  final TaskModelHive task;
-}
-
+// ═══════════════════════════════════════════════════════════════
+// HOME SCREEN
+// ═══════════════════════════════════════════════════════════════
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  TaskFilter _filter = TaskFilter.all;
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  int _navIdx = 0;
+  late final AnimationController _fabCtrl;
+  late final Animation<double> _fabScale;
 
-  List<_ListItem> _buildListItems(
-    List<TaskModelHive> visibleTasks,
-    DateTime now,
-    TaskFilter filter,
-  ) {
-    if (visibleTasks.isEmpty) return [];
+  @override
+  void initState() {
+    super.initState();
+    _fabCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 120));
+    _fabScale = Tween<double>(begin: 1.0, end: 0.92)
+        .animate(CurvedAnimation(parent: _fabCtrl, curve: Curves.easeInOut));
+  }
 
-    if (filter == TaskFilter.completed) {
-      return visibleTasks.map(_TaskItem.new).toList();
-    }
-
-    final overdue = visibleTasks
-        .where((t) => t.scheduledAt.isBefore(now) && !t.isCompleted)
-        .toList()
-      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-
-    final rest = visibleTasks
-        .where((t) => !t.scheduledAt.isBefore(now) || t.isCompleted)
-        .toList()
-      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-
-    final items = <_ListItem>[];
-
-    if (overdue.isNotEmpty) {
-      items.add(_LabelItem(label: 'Overdue', color: AppColors.error, count: overdue.length));
-      items.addAll(overdue.map(_TaskItem.new));
-    }
-
-    if (rest.isNotEmpty) {
-      items.add(_LabelItem(label: 'Upcoming', color: AppColors.primary, count: rest.length));
-      items.addAll(rest.map(_TaskItem.new));
-    }
-
-    return items;
+  @override
+  void dispose() {
+    _fabCtrl.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<User?>();
-    final allTasks = context.watch<TasksNotifier>().tasks;
-    final filter = _filter;
-    final now = DateTime.now();
-
-    final todayTasks = allTasks.where((t) {
-      final d = t.scheduledAt;
-      return d.year == now.year && d.month == now.month && d.day == now.day;
-    }).toList();
-    final completedTasks = allTasks.where((t) => t.isCompleted).toList();
-    final overdueTasks = allTasks
-        .where((t) => t.scheduledAt.isBefore(now) && !t.isCompleted)
-        .toList();
-
-    final visibleTasks = switch (filter) {
-      TaskFilter.all => allTasks,
-      TaskFilter.today => todayTasks,
-      TaskFilter.completed => completedTasks,
-    };
-
-    final completionRatio =
-        allTasks.isEmpty ? 0.0 : completedTasks.length / allTasks.length;
-
-    final listItems = _buildListItems(visibleTasks, now, filter);
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         bottom: false,
         child: Stack(
           children: [
-            Column(
-              children: [
-                _TopAppBar(user: user),
-                Expanded(
-                  child: CustomScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _HeroCard(
-                                user: user,
-                                completionRatio: completionRatio,
-                                totalCount: allTasks.length,
-                                completedCount: completedTasks.length,
-                              ),
-                              const SizedBox(height: 16),
-                              _QuickStats(
-                                overdueCount: overdueTasks.length,
-                                upcomingCount: todayTasks.where((t) => !t.isCompleted).length,
-                                doneToday: completedTasks.where((t) {
-                                  final d = t.scheduledAt;
-                                  return d.year == now.year && d.month == now.month && d.day == now.day;
-                                }).length,
-                              ),
-                              const SizedBox(height: 20),
-                              _DashboardCards(
-                                todayCount: todayTasks.length,
-                                completedCount: completedTasks.length,
-                              ),
-                              const SizedBox(height: 24),
-                              _SectionHeader(
-                                filter: filter,
-                                count: visibleTasks.length,
-                                onFilterChanged: (f) =>
-                                    setState(() => _filter = f),
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (visibleTasks.isEmpty)
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 160),
-                          sliver: SliverToBoxAdapter(
-                            child: _EmptyState(
-                              filter: filter,
-                              onAddTap: () => Navigator.push(
-                                context,
-                                _slideRoute(const AddTaskScreen()),
-                              ),
-                            ),
-                          ),
-                        )
-                      else
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 160),
-                          sliver: SliverList.builder(
-                            itemCount: listItems.length,
-                            itemBuilder: (context, index) {
-                              final item = listItems[index];
-                              return switch (item) {
-                                _LabelItem(:final label, :final color, :final count) =>
-                                  _DividerLabel(label: label, color: color, count: count),
-                                _TaskItem(:final task) => _AnimatedTaskItem(
-                                    index: math.min(index, 10),
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(bottom: 10),
-                                      child: TaskCard(
-                                        task: task,
-                                        onToggleComplete: () => context
-                                            .read<TasksNotifier>()
-                                            .toggleComplete(task.id),
-                                        onDelete: () => context
-                                            .read<TasksNotifier>()
-                                            .deleteTask(task),
-                                      ),
-                                    ),
-                                  ),
-                              };
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            _buildBody(),
             Align(
               alignment: Alignment.bottomCenter,
-              child: SafeArea(
-                top: false,
-                child: _BottomInputBar(
-                  onAddTap: () => Navigator.push(
-                    context,
-                    _slideRoute(const AddTaskScreen()),
-                  ),
-                  onQuickAdd: (parsed) => Navigator.push(
-                    context,
-                    _slideRoute(AddTaskScreen(initialParsed: parsed)),
-                  ),
-                ),
+              child: _BottomNav(
+                index: _navIdx,
+                fabCtrl: _fabCtrl,
+                fabScale: _fabScale,
+                onTap: (i) {
+                  if (i == 2) {
+                    HapticFeedback.mediumImpact();
+                    Navigator.push(context, _slideUp(const AddTaskScreen()));
+                    return;
+                  }
+                  if (i == 1) {
+                    Navigator.push(context, _slideUp(const SummaryScreen()));
+                    return;
+                  }
+                  if (i == 4) {
+                    Navigator.push(context, _slideUp(const ProfileScreen()));
+                    return;
+                  }
+                  HapticFeedback.selectionClick();
+                  setState(() => _navIdx = i);
+                },
               ),
             ),
           ],
@@ -244,916 +97,976 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Route _slideRoute(Widget page) => PageRouteBuilder(
-        pageBuilder: (_, __, ___) => page,
-        transitionsBuilder: (_, anim, __, child) => SlideTransition(
-          position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
-            CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
+  Widget _buildBody() {
+    final user = context.watch<User?>();
+    final notifier = context.watch<TasksNotifier>();
+    final currentTask = context.watch<CurrentTaskNotifier>();
+    final pending = notifier.pendingTasks;
+    final completed = notifier.completedTasks;
+
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(_kPad, 0, _kPad, 150),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              _TopBar(user: user),
+              const SizedBox(height: 16),
+              const _WeekNav(),
+              const SizedBox(height: 20),
+
+              // ── Stats strip ───────────────────────────────────
+              _StatsStrip(pending: pending.length, completed: completed.length),
+              const SizedBox(height: 20),
+
+              // ── Hero card ─────────────────────────────────────
+              _HeroCard(currentTask: currentTask),
+              const SizedBox(height: 28),
+
+              // ── Pending tasks ─────────────────────────────────
+              if (pending.isNotEmpty) ...[
+                _SectionHeader(
+                  title: 'All Tasks',
+                  badge: '${pending.length}',
+                  action: 'See All',
+                  onAction: () {},
+                ),
+                const SizedBox(height: _kGap),
+                ...List.generate(pending.length, (i) {
+                  final task = pending[i];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: _kGap),
+                    child: TaskCard(
+                      task: task,
+                      onTap: () => _openDetail(task),
+                      onToggleComplete: () => _completeTask(notifier, task),
+                      onDelete: () => _deleteTask(notifier, task),
+                    ),
+                  );
+                }),
+              ],
+
+              // ── Completed tasks ───────────────────────────────
+              if (completed.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _SectionHeader(
+                  title: 'Completed',
+                  badge: '${completed.length}',
+                  action: 'Clear all',
+                  onAction: () {},
+                  badgeColor: AppColors.mint,
+                ),
+                const SizedBox(height: _kGap),
+                ...List.generate(completed.length, (i) {
+                  final task = completed[i];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: _kGap),
+                    child: TaskCard(
+                      task: task,
+                      onTap: () => _openDetail(task),
+                      onToggleComplete: () => _completeTask(notifier, task),
+                      onDelete: () => _deleteTask(notifier, task),
+                    ),
+                  );
+                }),
+              ],
+
+              // ── Empty state ───────────────────────────────────
+              if (notifier.tasks.isEmpty)
+                _EmptyState(
+                  onAdd: () =>
+                      Navigator.push(context, _slideUp(const AddTaskScreen())),
+                ),
+            ]),
           ),
+        ),
+      ],
+    );
+  }
+
+  void _openDetail(TaskModelHive task) async {
+    await Navigator.push(context, _slideUp(TaskDetailScreen(task: task)));
+    if (mounted) setState(() {});
+  }
+
+  void _completeTask(TasksNotifier notifier, TaskModelHive task) {
+    HapticFeedback.mediumImpact();
+    notifier.toggleComplete(task.id);
+    _showSnackBar(
+      icon: task.isCompleted ? Icons.undo_rounded : Icons.check_circle_rounded,
+      message: task.isCompleted ? 'Marked as pending' : 'Task completed! 🎉',
+      color: task.isCompleted ? AppColors.purple : AppColors.mint,
+      action: SnackBarAction(
+        label: 'Undo',
+        textColor: AppColors.textDark,
+        onPressed: () => notifier.toggleComplete(task.id),
+      ),
+    );
+  }
+
+  void _deleteTask(TasksNotifier notifier, TaskModelHive task) {
+    HapticFeedback.heavyImpact();
+    notifier.deleteTask(task);
+    _showSnackBar(
+      icon: Icons.delete_rounded,
+      message: '"${task.title}" deleted',
+      color: AppColors.error,
+    );
+  }
+
+  void _showSnackBar({
+    required IconData icon,
+    required String message,
+    required Color color,
+    SnackBarAction? action,
+  }) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: Colors.white, size: 16),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(message,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ),
+      ]),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+      duration: const Duration(seconds: 3),
+      action: action,
+    ));
+  }
+
+  Route _slideUp(Widget page) => PageRouteBuilder(
+        pageBuilder: (_, __, ___) => page,
+        transitionsBuilder: (_, a, __, child) => SlideTransition(
+          position: Tween(begin: const Offset(0, 1), end: Offset.zero)
+              .animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
           child: child,
         ),
-        transitionDuration: const Duration(milliseconds: 320),
+        transitionDuration: const Duration(milliseconds: 340),
       );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TOP APP BAR
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// STATS STRIP — quick summary above hero card
+// ═══════════════════════════════════════════════════════════════
+class _StatsStrip extends StatelessWidget {
+  const _StatsStrip({required this.pending, required this.completed});
+  final int pending, completed;
 
-class _TopAppBar extends StatelessWidget {
-  const _TopAppBar({required this.user});
+  @override
+  Widget build(BuildContext context) {
+    final total = pending + completed;
+    final pct = total == 0 ? 0.0 : completed / total;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(_kRadius),
+        border: Border.all(color: AppColors.divider, width: 1),
+      ),
+      child: Row(
+        children: [
+          _StatItem(
+              value: '$total', label: 'Total', color: AppColors.textPrimary),
+          _VertDivider(),
+          _StatItem(
+              value: '$pending', label: 'Pending', color: AppColors.yellow),
+          _VertDivider(),
+          _StatItem(value: '$completed', label: 'Done', color: AppColors.mint),
+          const Spacer(),
+          // Mini completion bar
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('${(pct * 100).round()}%',
+                  style: TextStyle(
+                    color: AppColors.mint,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  )),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: SizedBox(
+                  width: 80,
+                  height: 6,
+                  child: Stack(
+                    children: [
+                      Container(color: AppColors.innerCard),
+                      FractionallySizedBox(
+                        widthFactor: pct,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [AppColors.mint, AppColors.purple],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  const _StatItem(
+      {required this.value, required this.label, required this.color});
+  final String value, label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        children: [
+          Text(value,
+              style: TextStyle(
+                color: color,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              )),
+          Text(label,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+              )),
+        ],
+      );
+}
+
+class _VertDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 1,
+        height: 28,
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        color: AppColors.divider,
+      );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TOP BAR
+// ═══════════════════════════════════════════════════════════════
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.user});
   final User? user;
 
   @override
   Widget build(BuildContext context) {
+    final name = user?.userMetadata?['display_name'] as String? ?? 'User';
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.only(top: 16),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _Avatar(user: user),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Text(
-                'TaskVoice',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1E293B),
-                  letterSpacing: -0.4,
-                ),
-              ),
-            ],
-          ),
-          Semantics(
-            label: 'Sign out',
-            button: true,
-            child: GestureDetector(
-              onTap: () => context.read<AuthNotifier>().signOut(),
-              child: Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.logout_rounded, color: Colors.red, size: 18),
-              ),
+          // Avatar
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.purple, width: 2),
+            ),
+            child: CircleAvatar(
+              radius: 20,
+              backgroundColor: AppColors.purple.withOpacity(0.2),
+              backgroundImage: user?.userMetadata?['avatar_url'] != null
+                  ? NetworkImage(user!.userMetadata!['avatar_url'] as String)
+                  : null,
+              child: user?.userMetadata?['avatar_url'] == null
+                  ? Text(initial,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ))
+                  : null,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
+          const SizedBox(width: 12),
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HERO CARD — glassmorphism style
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({
-    required this.user,
-    required this.completionRatio,
-    required this.totalCount,
-    required this.completedCount,
-  });
-
-  final dynamic user;
-  final double completionRatio;
-  final int totalCount;
-  final int completedCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final firstName =
-        (user?.displayName as String?)?.split(' ').first ?? 'there';
-    final greeting = _greeting();
-    final dateLabel = _todayLabel();
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF4F46E5), Color(0xFF3730A3)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF4F46E5).withValues(alpha: 0.35),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
+          // Greeting
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        greeting,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                Text('Welcome back,',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    )),
+                Text(name,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  firstName,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: -1.2,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today_outlined,
-                        size: 13, color: Colors.white60),
-                    const SizedBox(width: 5),
-                    Text(
-                      dateLabel,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.white60,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    _StatPill(
-                      icon: Icons.check_circle_outline,
-                      value: '$completedCount',
-                      label: 'done',
-                    ),
-                    const SizedBox(width: 8),
-                    _StatPill(
-                      icon: Icons.list_alt_outlined,
-                      value: '$totalCount',
-                      label: 'total',
-                    ),
-                  ],
-                ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
-          const SizedBox(width: 16),
-          _ProgressRing(
-            ratio: completionRatio,
-            total: totalCount,
-            done: completedCount,
+
+          // Notification bell — NOT sign out
+          _IconBtn(
+            icon: Icons.notifications_outlined,
+            onTap: () {/* TODO: open notifications */},
+            badge: true,
+          ),
+          const SizedBox(width: 8),
+          _IconBtn(
+            icon: Icons.search_rounded,
+            onTap: () {/* TODO: search */},
           ),
         ],
       ),
     );
   }
-
-  String _greeting() {
-    final h = DateTime.now().hour;
-    if (h < 12) return 'Good Morning';
-    if (h < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  }
-
-  String _todayLabel() {
-    final now = DateTime.now();
-    return DateFormat('EEEE, MMMM d').format(now);
-  }
 }
 
-class _StatPill extends StatelessWidget {
-  const _StatPill({required this.icon, required this.value, required this.label});
+class _IconBtn extends StatelessWidget {
+  const _IconBtn({required this.icon, required this.onTap, this.badge = false});
   final IconData icon;
-  final String value;
-  final String label;
+  final VoidCallback onTap;
+  final bool badge;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.cardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.divider),
+                ),
+                child: Icon(icon, color: AppColors.textPrimary, size: 20),
+              ),
+              if (badge)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppColors.error,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WEEK NAV
+// ═══════════════════════════════════════════════════════════════
+class _WeekNav extends StatelessWidget {
+  const _WeekNav();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: Colors.white70),
-          const SizedBox(width: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
+    final now = DateTime.now();
+    final day = DateFormat('EEEE, MMMM d').format(now);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _ChevronBtn(icon: Icons.chevron_left_rounded),
+        Column(
+          children: [
+            Text(day,
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+            const SizedBox(height: 2),
+            const Text('This Week',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                )),
+          ],
+        ),
+        _ChevronBtn(icon: Icons.chevron_right_rounded),
+      ],
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PROGRESS RING
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ProgressRing extends StatefulWidget {
-  const _ProgressRing({
-    required this.ratio,
-    required this.total,
-    required this.done,
-  });
-  final double ratio;
-  final int total;
-  final int done;
+class _ChevronBtn extends StatelessWidget {
+  const _ChevronBtn({required this.icon});
+  final IconData icon;
 
   @override
-  State<_ProgressRing> createState() => _ProgressRingState();
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: () {},
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppColors.cardBg,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: Icon(icon, color: AppColors.textPrimary, size: 20),
+        ),
+      );
 }
 
-class _ProgressRingState extends State<_ProgressRing>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
+// ═══════════════════════════════════════════════════════════════
+// HERO CARD — current task + subtasks + progress arc
+// ═══════════════════════════════════════════════════════════════
+class _HeroCard extends StatefulWidget {
+  const _HeroCard({required this.currentTask});
+  final CurrentTaskNotifier currentTask;
+
+  @override
+  State<_HeroCard> createState() => _HeroCardState();
+}
+
+class _HeroCardState extends State<_HeroCard> with TickerProviderStateMixin {
+  late AnimationController _arcCtrl;
+  late Animation<double> _arcAnim;
+  late ConfettiController _confettiCtrl;
+  bool _hasCelebrated = false;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
-    _ctrl.forward();
+    _arcCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 600));
+    _arcAnim = CurvedAnimation(parent: _arcCtrl, curve: Curves.easeOutCubic);
+    _confettiCtrl =
+        ConfettiController(duration: const Duration(milliseconds: 1500));
+    _arcCtrl.forward();
   }
 
   @override
-  void didUpdateWidget(_ProgressRing old) {
+  void didUpdateWidget(covariant _HeroCard old) {
     super.didUpdateWidget(old);
-    if (old.ratio != widget.ratio) {
-      _anim = Tween<double>(begin: old.ratio, end: widget.ratio).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic),
-      );
-      _ctrl..reset()..forward();
+    _arcCtrl.forward(from: 0);
+    final progress = widget.currentTask.progress;
+    if (progress == 1.0 &&
+        widget.currentTask.totalCount > 0 &&
+        !_hasCelebrated) {
+      _hasCelebrated = true;
+      HapticFeedback.heavyImpact();
+      _confettiCtrl.play();
     }
+    if (progress < 1.0) _hasCelebrated = false;
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _arcCtrl.dispose();
+    _confettiCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      label: '${(widget.ratio * 100).round()} percent complete',
-      child: AnimatedBuilder(
-        animation: _anim,
-        builder: (_, __) => SizedBox(
-          width: 80,
-          height: 80,
-          child: CustomPaint(
-            painter: _RingPainter(
-              progress: _anim.value,
-              trackColor: Colors.white.withValues(alpha: 0.15),
-              arcColor: Colors.white,
+    final task = widget.currentTask.currentTask;
+
+    if (task == null) return _EmptyHeroCard();
+
+    final progress = widget.currentTask.progress;
+    final allDone = progress == 1.0 && widget.currentTask.totalCount > 0;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.cardBg,
+            borderRadius: BorderRadius.circular(_kRadius),
+            border: Border.all(color: AppColors.divider, width: 1),
+            // Subtle gradient shimmer on top
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.cardBg,
+                AppColors.cardBg,
+                allDone
+                    ? AppColors.gold.withOpacity(0.05)
+                    : AppColors.mint.withOpacity(0.04),
+              ],
             ),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.total == 0
-                        ? '—'
-                        : '${(widget.ratio * 100).round()}%',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  const Text(
-                    'done',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.white60,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+            boxShadow: [
+              BoxShadow(
+                color: (allDone ? AppColors.gold : AppColors.mint)
+                    .withOpacity(0.08),
+                blurRadius: 24,
+                spreadRadius: -4,
+                offset: const Offset(0, 8),
               ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // ── Top section ──────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Label
+                          Row(
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: BoxDecoration(
+                                  color:
+                                      allDone ? AppColors.gold : AppColors.mint,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              Text('Current task',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                  )),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Task title
+                          Text(task.title,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 8),
+
+                          // Trend indicator
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: (allDone ? AppColors.gold : AppColors.mint)
+                                  .withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  allDone
+                                      ? Icons.check_rounded
+                                      : Icons.trending_up_rounded,
+                                  size: 12,
+                                  color:
+                                      allDone ? AppColors.gold : AppColors.mint,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  allDone
+                                      ? 'All done!'
+                                      : '${widget.currentTask.completedCount}/${widget.currentTask.totalCount} done',
+                                  style: TextStyle(
+                                    color: allDone
+                                        ? AppColors.gold
+                                        : AppColors.mint,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Category chips
+                          Wrap(
+                            spacing: 8,
+                            children: task.categories
+                                .take(2)
+                                .map((c) => _TagChip(label: c))
+                                .toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Right column: buttons + arc
+                    Column(
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _CircleIconBtn(icon: Icons.ios_share_rounded),
+                            const SizedBox(width: 8),
+                            _CircleIconBtn(icon: Icons.arrow_outward_rounded),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        AnimatedBuilder(
+                          animation: _arcAnim,
+                          builder: (_, __) => _ProgressArc(
+                            progress: progress * _arcAnim.value,
+                            allDone: allDone,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Subtasks section ─────────────────────────────
+              if (widget.currentTask.subtasks.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                          child:
+                              Container(height: 1, color: AppColors.divider)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Icon(Icons.checklist_rounded,
+                                size: 12, color: AppColors.textSecondary),
+                            const SizedBox(width: 4),
+                            Text('Subtasks',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                )),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                          child:
+                              Container(height: 1, color: AppColors.divider)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  child: Column(
+                    children: widget.currentTask.subtasks
+                        .map((s) => _SubtaskRow(
+                              subtask: s,
+                              onToggle: () => widget.currentTask
+                                  .toggleSubtask(task.id, s.id),
+                            ))
+                        .toList(),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // Confetti
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: _confettiCtrl,
+              blastDirectionality: BlastDirectionality.explosive,
+              emissionFrequency: 0.25,
+              numberOfParticles: 20,
+              maxBlastForce: 22,
+              gravity: 0.3,
+              colors: const [
+                AppColors.mint,
+                AppColors.purple,
+                AppColors.yellow,
+                AppColors.gold
+              ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyHeroCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        decoration: BoxDecoration(
+          color: AppColors.cardBg,
+          borderRadius: BorderRadius.circular(_kRadius),
+          border: Border.all(color: AppColors.divider),
+          // Dashed border effect via gradient
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.innerCard,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.push_pin_outlined,
+                  color: AppColors.textHint, size: 24),
+            ),
+            const SizedBox(height: 12),
+            const Text('No pinned task',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                )),
+            const SizedBox(height: 4),
+            const Text('Open a task and pin it as your current focus.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                )),
+          ],
+        ),
+      );
+}
+
+// ─── Tag chip ──────────────────────────────────────────────────
+class _TagChip extends StatelessWidget {
+  const _TagChip({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.innerCard,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: Text(label,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            )),
+      );
+}
+
+// ─── Circle icon button ────────────────────────────────────────
+class _CircleIconBtn extends StatelessWidget {
+  const _CircleIconBtn({required this.icon});
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: AppColors.innerCard,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: Icon(icon, size: 16, color: AppColors.textSecondary),
+      );
+}
+
+// ─── Progress arc ──────────────────────────────────────────────
+class _ProgressArc extends StatelessWidget {
+  const _ProgressArc({required this.progress, required this.allDone});
+  final double progress;
+  final bool allDone;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = allDone ? AppColors.gold : AppColors.mint;
+    return SizedBox(
+      width: 76,
+      height: 76,
+      child: CustomPaint(
+        painter: _SemiArcPainter(progress: progress, color: color),
+        child: Center(
+          child: allDone
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.check_rounded, color: AppColors.gold, size: 16),
+                    Text('Done!',
+                        style: TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                        )),
+                  ],
+                )
+              : Text('${(progress * 100).round()}%',
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  )),
         ),
       ),
     );
   }
 }
 
-class _RingPainter extends CustomPainter {
-  _RingPainter({
-    required this.progress,
-    required this.trackColor,
-    required this.arcColor,
-  });
+class _SemiArcPainter extends CustomPainter {
+  const _SemiArcPainter({required this.progress, required this.color});
   final double progress;
-  final Color trackColor;
-  final Color arcColor;
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - 8) / 2;
-    const startAngle = -math.pi * 0.75;
-    const sweepMax = math.pi * 1.5;
+    final radius = (size.width - 10) / 2;
+    const start = -math.pi * 0.75;
+    const sweep = math.pi * 1.5;
 
-    final trackPaint = Paint()
-      ..color = trackColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round;
+    // Track
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      startAngle,
-      sweepMax,
+      start,
+      sweep,
       false,
-      trackPaint,
+      Paint()
+        ..color = AppColors.innerCard
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 8
+        ..strokeCap = StrokeCap.round,
     );
 
-    if (progress > 0) {
-      final arcPaint = Paint()
-        ..color = arcColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 6
-        ..strokeCap = StrokeCap.round;
+    // Progress
+    if (progress > 0.01) {
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        sweepMax * progress,
+        start,
+        sweep * progress,
         false,
-        arcPaint,
+        Paint()
+          ..shader = SweepGradient(
+            startAngle: start,
+            endAngle: start + sweep * progress,
+            colors: [color.withOpacity(0.6), color],
+          ).createShader(Rect.fromCircle(center: center, radius: radius))
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 8
+          ..strokeCap = StrokeCap.round,
       );
     }
   }
 
   @override
-  bool shouldRepaint(_RingPainter old) => old.progress != progress;
+  bool shouldRepaint(_SemiArcPainter old) =>
+      old.progress != progress || old.color != color;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// QUICK STATS ROW
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _QuickStats extends StatelessWidget {
-  const _QuickStats({
-    required this.overdueCount,
-    required this.upcomingCount,
-    required this.doneToday,
-  });
-
-  final int overdueCount;
-  final int upcomingCount;
-  final int doneToday;
+// ─── Subtask row ───────────────────────────────────────────────
+class _SubtaskRow extends StatelessWidget {
+  const _SubtaskRow({required this.subtask, required this.onToggle});
+  final SubTask subtask;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: _QuickStatCard(
-          icon: Icons.warning_amber_rounded,
-          value: '$overdueCount',
-          label: 'Overdue',
-          color: AppColors.error,
-          bg: const Color(0xFFFEF2F2),
-        )),
-        const SizedBox(width: 12),
-        Expanded(child: _QuickStatCard(
-          icon: Icons.schedule_rounded,
-          value: '$upcomingCount',
-          label: 'Due Today',
-          color: const Color(0xFFF59E0B),
-          bg: const Color(0xFFFFFBEB),
-        )),
-        const SizedBox(width: 12),
-        Expanded(child: _QuickStatCard(
-          icon: Icons.check_circle_rounded,
-          value: '$doneToday',
-          label: 'Done Today',
-          color: AppColors.success,
-          bg: const Color(0xFFF0FDF4),
-        )),
-      ],
-    );
-  }
-}
-
-class _QuickStatCard extends StatelessWidget {
-  const _QuickStatCard({
-    required this.icon,
-    required this.value,
-    required this.label,
-    required this.color,
-    required this.bg,
-  });
-
-  final IconData icon;
-  final String value;
-  final String label;
-  final Color color;
-  final Color bg;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: color,
-                    height: 1,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: color.withValues(alpha: 0.7),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// DASHBOARD CARDS
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _DashboardCards extends StatelessWidget {
-  const _DashboardCards({
-    required this.todayCount,
-    required this.completedCount,
-  });
-
-  final int todayCount;
-  final int completedCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _DashboardCard(
-            title: "Today's Tasks",
-            count: todayCount,
-            icon: Icons.wb_sunny_rounded,
-            iconBg: const Color(0xFFEEF2FF),
-            iconColor: const Color(0xFF6366F1),
-            cardBg: Colors.white,
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: _DashboardCard(
-            title: 'Completed',
-            count: completedCount,
-            icon: Icons.emoji_events_rounded,
-            iconBg: const Color(0xFFF0FDF4),
-            iconColor: AppColors.success,
-            cardBg: Colors.white,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DashboardCard extends StatelessWidget {
-  const _DashboardCard({
-    required this.title,
-    required this.count,
-    required this.icon,
-    required this.iconBg,
-    required this.iconColor,
-    required this.cardBg,
-  });
-
-  final String title;
-  final int count;
-  final IconData icon;
-  final Color iconBg;
-  final Color iconColor;
-  final Color cardBg;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            '$count',
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1E293B),
-              height: 1,
-              letterSpacing: -1.2,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF64748B),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION HEADER
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.filter,
-    required this.count,
-    required this.onFilterChanged,
-  });
-
-  final TaskFilter filter;
-  final int count;
-  final ValueChanged<TaskFilter> onFilterChanged;
-
-  String get _label => switch (filter) {
-        TaskFilter.today => "Today's Tasks",
-        TaskFilter.completed => 'Completed',
-        TaskFilter.all => 'All Tasks',
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          _label,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF1E293B),
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(width: 8),
-        if (count > 0)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFF4F46E5).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              '$count',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF4F46E5),
-              ),
-            ),
-          ),
-        const Spacer(),
-        _FilterChipsRow(
-          filter: filter,
-          onFilterChanged: onFilterChanged,
-        ),
-      ],
-    );
-  }
-}
-
-class _FilterChipsRow extends StatelessWidget {
-  const _FilterChipsRow({
-    required this.filter,
-    required this.onFilterChanged,
-  });
-
-  final TaskFilter filter;
-  final ValueChanged<TaskFilter> onFilterChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _FilterChip(
-            label: 'All',
-            isActive: filter == TaskFilter.all,
-            onTap: () => onFilterChanged(TaskFilter.all),
-          ),
-          const SizedBox(width: 6),
-          _FilterChip(
-            label: 'Today',
-            isActive: filter == TaskFilter.today,
-            onTap: () => onFilterChanged(TaskFilter.today),
-          ),
-          const SizedBox(width: 6),
-          _FilterChip(
-            label: 'Done',
-            isActive: filter == TaskFilter.completed,
-            onTap: () => onFilterChanged(TaskFilter.completed),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF4F46E5) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
-          ),
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : [],
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isActive ? Colors.white : const Color(0xFF64748B),
-            fontSize: 12,
-            fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BOTTOM INPUT BAR
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _BottomInputBar extends StatelessWidget {
-  const _BottomInputBar({
-    required this.onAddTap,
-    required this.onQuickAdd,
-  });
-
-  final VoidCallback onAddTap;
-  final ValueChanged<ParsedTask> onQuickAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.of(context).padding.bottom;
-
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.9),
-            border: const Border(
-              top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-            ),
-          ),
-          padding: EdgeInsets.only(
-            top: 12,
-            bottom: bottomPad > 0 ? bottomPad + 12 : 20,
-            left: 20,
-            right: 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onToggle,
+        splashColor: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+          child: Row(
             children: [
-              // Quick actions row
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _QuickActionChip(
-                      icon: Icons.today_outlined,
-                      label: 'Today',
-                      color: const Color(0xFF6366F1),
-                      onTap: () => onQuickAdd(
-                        ParsedTask(title: 'New Task', scheduledAt: DateTime.now()),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _QuickActionChip(
-                      icon: Icons.schedule_outlined,
-                      label: 'In 1 hour',
-                      color: const Color(0xFFF59E0B),
-                      onTap: () => onQuickAdd(
-                        ParsedTask(
-                          title: 'New Task',
-                          scheduledAt: DateTime.now().add(const Duration(hours: 1)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _QuickActionChip(
-                      icon: Icons.wb_twilight_outlined,
-                      label: 'Tomorrow',
-                      color: const Color(0xFF10B981),
-                      onTap: () {
-                        final now = DateTime.now();
-                        onQuickAdd(ParsedTask(
-                          title: 'New Task',
-                          scheduledAt: DateTime(now.year, now.month, now.day + 1, 9, 0),
-                        ));
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    _QuickActionChip(
-                      icon: Icons.calendar_month_outlined,
-                      label: 'Pick date',
-                      color: const Color(0xFF8B5CF6),
-                      onTap: onAddTap,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-              // Main input bar
-              Container(
-                height: 56,
+              // Checkbox
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 22,
+                height: 22,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+                  shape: BoxShape.circle,
+                  color:
+                      subtask.isCompleted ? AppColors.mint : Colors.transparent,
+                  border: subtask.isCompleted
+                      ? null
+                      : Border.all(color: AppColors.checkboxBorder, width: 1.5),
+                  boxShadow: subtask.isCompleted
+                      ? [
+                          BoxShadow(
+                            color: AppColors.mint.withOpacity(0.3),
+                            blurRadius: 8,
+                            spreadRadius: -2,
+                          )
+                        ]
+                      : null,
                 ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: onAddTap,
-                        child: Container(
-                          height: 44,
-                          alignment: Alignment.centerLeft,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.add_circle_outline,
-                                  size: 18, color: Color(0xFF94A3B8)),
-                              const SizedBox(width: 10),
-                              const Text(
-                                'Add a new task...',
-                                style: TextStyle(
-                                  color: Color(0xFF94A3B8),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: 1.5,
-                      height: 28,
-                      color: const Color(0xFFE2E8F0),
-                    ),
-                    const SizedBox(width: 4),
-                    SizedBox(
-                      width: 48,
-                      height: 48,
-                      child: VoiceButton(onParsed: onQuickAdd, isCompact: true),
-                    ),
-                    const SizedBox(width: 6),
-                  ],
+                child: subtask.isCompleted
+                    ? const Icon(Icons.check_rounded,
+                        size: 14, color: AppColors.textDark)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+
+              // Title
+              Expanded(
+                child: AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
+                  style: TextStyle(
+                    color: subtask.isCompleted
+                        ? AppColors.textHint
+                        : AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight:
+                        subtask.isCompleted ? FontWeight.w400 : FontWeight.w500,
+                    decoration: subtask.isCompleted
+                        ? TextDecoration.lineThrough
+                        : TextDecoration.none,
+                    decorationColor: AppColors.textHint,
+                  ),
+                  child: Text(subtask.title),
                 ),
               ),
             ],
@@ -1164,322 +1077,311 @@ class _BottomInputBar extends StatelessWidget {
   }
 }
 
-class _QuickActionChip extends StatelessWidget {
-  const _QuickActionChip({
-    required this.icon,
+// Removed _SwipeableTaskCard, _SwipeBg, and _TaskListCard in favor of widgets/task_card.dart
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION HEADER
+// ═══════════════════════════════════════════════════════════════
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.badge,
+    required this.action,
+    required this.onAction,
+    this.badgeColor,
+  });
+  final String title, badge, action;
+  final VoidCallback onAction;
+  final Color? badgeColor;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Text(title,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              )),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: (badgeColor ?? AppColors.purple).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(badge,
+                style: TextStyle(
+                  color: badgeColor ?? AppColors.purple,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                )),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: onAction,
+            child: Text(action,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                )),
+          ),
+        ],
+      );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EMPTY STATE
+// ═══════════════════════════════════════════════════════════════
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.onAdd});
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Column(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppColors.cardBg,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.divider, width: 1.5),
+            ),
+            child: const Icon(Icons.task_alt_rounded,
+                size: 36, color: AppColors.textHint),
+          ),
+          const SizedBox(height: 20),
+          const Text('All clear!',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              )),
+          const SizedBox(height: 8),
+          const Text('You have no tasks yet.\nTap the + button to get started.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+                height: 1.5,
+              )),
+          const SizedBox(height: 28),
+          GestureDetector(
+            onTap: onAdd,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.mint, Color(0xFF2BBDAE)],
+                ),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.mint.withOpacity(0.3),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.add_rounded, color: AppColors.textDark, size: 18),
+                  SizedBox(width: 6),
+                  Text('Add First Task',
+                      style: TextStyle(
+                        color: AppColors.textDark,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      )),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOTTOM NAV
+// ═══════════════════════════════════════════════════════════════
+class _BottomNav extends StatelessWidget {
+  const _BottomNav({
+    required this.index,
+    required this.onTap,
+    required this.fabCtrl,
+    required this.fabScale,
+  });
+  final int index;
+  final void Function(int) onTap;
+  final AnimationController fabCtrl;
+  final Animation<double> fabScale;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPad + 20),
+      child: Row(
+        children: [
+          // Main Navigation Pill - Glassmorphic Dark
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Container(
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardBg.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(
+                      color: AppColors.divider.withOpacity(0.5),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _PillNavItem(
+                        label: 'Tasks',
+                        icon: Icons.home_filled,
+                        active: index == 0,
+                        onTap: () => onTap(0),
+                      ),
+                      _PillNavItem(
+                        label: 'Stats',
+                        icon: Icons.stacked_bar_chart_rounded,
+                        active: index == 1,
+                        onTap: () => onTap(1),
+                      ),
+                      _PillNavItem(
+                        label: 'Profile',
+                        icon: Icons.person_rounded,
+                        active: index == 4,
+                        onTap: () => onTap(4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Separate Add Button - Glassmorphic Dark Circle
+          GestureDetector(
+            onTapDown: (_) => fabCtrl.forward(),
+            onTapUp: (_) {
+              fabCtrl.reverse();
+              onTap(2);
+            },
+            onTapCancel: () => fabCtrl.reverse(),
+            child: ScaleTransition(
+              scale: fabScale,
+              child: ClipOval(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: AppColors.cardBg.withOpacity(0.7),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.divider.withOpacity(0.5),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      color: AppColors.mint,
+                      size: 32,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PillNavItem extends StatelessWidget {
+  const _PillNavItem({
     required this.label,
-    required this.color,
+    required this.icon,
+    required this.active,
     required this.onTap,
   });
-
-  final IconData icon;
   final String label;
-  final Color color;
+  final IconData icon;
+  final bool active;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutBack,
+        padding: EdgeInsets.symmetric(
+          horizontal: active ? 16 : 14,
+          vertical: 10,
+        ),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
+          color: active ? AppColors.mint.withOpacity(0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+            Icon(
+              icon,
+              size: 22,
+              color: active ? AppColors.mint : AppColors.textSecondary,
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AVATAR
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.user});
-  final dynamic user;
-
-  @override
-  Widget build(BuildContext context) {
-    final photoUrl = user?.photoURL as String?;
-    final name = (user?.displayName as String?) ?? 'User';
-
-    if (photoUrl != null && photoUrl.isNotEmpty) {
-      return Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: CircleAvatar(
-          radius: 18,
-          backgroundImage: NetworkImage(photoUrl),
-        ),
-      );
-    }
-
-    return Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF4F46E5).withValues(alpha: 0.25),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Text(
-          _getInitials(name),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
-            fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ANIMATED TASK ITEM
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AnimatedTaskItem extends StatefulWidget {
-  const _AnimatedTaskItem({required this.index, required this.child});
-  final int index;
-  final Widget child;
-
-  @override
-  State<_AnimatedTaskItem> createState() => _AnimatedTaskItemState();
-}
-
-class _AnimatedTaskItemState extends State<_AnimatedTaskItem>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _fade;
-  late final Animation<Offset> _slide;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: 300 + widget.index * 40),
-    );
-    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide = Tween(begin: const Offset(0, 0.08), end: Offset.zero).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic),
-    );
-    Future.delayed(Duration(milliseconds: widget.index * 50), () {
-      if (mounted) _ctrl.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-        opacity: _fade,
-        child: SlideTransition(position: _slide, child: widget.child),
-      );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// EMPTY STATE
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.filter, required this.onAddTap});
-  final TaskFilter filter;
-  final VoidCallback onAddTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final (icon, title, subtitle) = switch (filter) {
-      TaskFilter.today => (
-          Icons.wb_sunny_outlined,
-          'Clear schedule today',
-          'No tasks due today. Enjoy your free time!',
-        ),
-      TaskFilter.completed => (
-          Icons.check_circle_outline_rounded,
-          'Nothing completed yet',
-          'Complete a task to see it here.',
-        ),
-      TaskFilter.all => (
-          Icons.task_outlined,
-          'Start your journey',
-          'Add your first task and take control of your day',
-        ),
-    };
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 48),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF4F46E5).withValues(alpha: 0.08),
-                  const Color(0xFF4F46E5).withValues(alpha: 0.03),
-                ],
-              ),
-            ),
-            child: Icon(icon, color: const Color(0xFF6366F1), size: 40),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Color(0xFF1E293B),
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.3,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              color: Color(0xFF64748B),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          if (filter == TaskFilter.all) ...[
-            const SizedBox(height: 24),
-            GestureDetector(
-              onTap: () {
-                HapticFeedback.mediumImpact();
-                onAddTap();
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF6366F1).withValues(alpha: 0.35),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add_rounded, color: Colors.white, size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      'Create your first task',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+            if (active) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.mint,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
                 ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DIVIDER LABEL
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _DividerLabel extends StatelessWidget {
-  const _DividerLabel({required this.label, required this.color, required this.count});
-  final String label;
-  final Color color;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10, top: 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '$count task${count == 1 ? '' : 's'}',
-            style: TextStyle(
-              color: color.withValues(alpha: 0.5),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-                    child: Container(height: 1, color: color.withValues(alpha: 0.12)),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// Removed _RingPainter

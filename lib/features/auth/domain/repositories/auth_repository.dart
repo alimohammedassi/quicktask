@@ -1,12 +1,12 @@
 // lib/features/auth/domain/repositories/auth_repository.dart
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:googleapis_auth/auth_io.dart';
 
 /// Abstract auth repository interface
 abstract class AuthRepository {
-  Future<UserCredential> signInWithEmail(String email, String password);
-  Future<UserCredential> signUpWithEmail(String email, String password, {String? displayName});
-  Future<UserCredential> signInWithGoogle();
+  Future<AuthResponse> signInWithEmail(String email, String password);
+  Future<AuthResponse> signUpWithEmail(String email, String password, {String? displayName});
+  Future<AuthResponse> signInWithGoogle();
   Future<void> signOut(String? currentUid);
   User? get currentUser;
   Stream<User?> get authStateChanges;

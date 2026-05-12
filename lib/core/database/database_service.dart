@@ -2,10 +2,12 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'user_model.dart';
 import 'task_model_hive.dart';
+import '../../data/repositories/subtask_repository.dart';
 
 class DatabaseService {
   static const String _usersBox = 'users';
   static const String _tasksBox = 'tasks';
+  static const String _prefsBox = 'prefs';
 
   static Future<void> init() async {
     await Hive.initFlutter();
@@ -17,10 +19,23 @@ class DatabaseService {
     // Open boxes
     await Hive.openBox<UserModel>(_usersBox);
     await Hive.openBox<TaskModelHive>(_tasksBox);
+    await Hive.openBox<String>(_prefsBox);
+    await SubtaskRepository.init();
   }
 
   static Box<UserModel> get usersBox => Hive.box<UserModel>(_usersBox);
   static Box<TaskModelHive> get tasksBox => Hive.box<TaskModelHive>(_tasksBox);
+  static Box<String> get prefsBox => Hive.box<String>(_prefsBox);
+
+  // ── Current task preference ─────────────────────────────────
+  static String? get currentTaskId => prefsBox.get('currentTaskId');
+  static Future<void> setCurrentTaskId(String? id) async {
+    if (id == null) {
+      await prefsBox.delete('currentTaskId');
+    } else {
+      await prefsBox.put('currentTaskId', id);
+    }
+  }
 
   // ─── User operations ─────────────────────────────────────────────────────────
 

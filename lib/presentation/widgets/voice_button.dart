@@ -148,7 +148,11 @@ class _VoiceButtonState extends State<VoiceButton>
                                 : AppColors.primary,
                         gradient: _isListening || _isPrompting
                             ? null
-                            : AppColors.primaryGradient,
+                            : const LinearGradient(
+                                colors: [AppColors.primary, AppColors.primaryLight],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
                         boxShadow: [
                           BoxShadow(
                             color: (_isListening
