@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // ── Core backgrounds ───────────────────────────────────────
-  static const background = Color(0xFF0D0D0D);
-  static const cardBg = Color(0xFF1A1A1A);
-  static const innerCard = Color(0xFF2A2A2A);
+  static const background = Color(0xFF000000);
+  static const cardBg = Color(0xFF0C0C0C);
+  static const innerCard = Color(0xFF1E1E1E);
 
   // ── Accent palette ─────────────────────────────────────────
   static const mint = Color(0xFFB8F0C8);

@@ -1,4 +1,4 @@
-﻿// lib/presentation/screens/profile_screen.dart
+// lib/presentation/screens/profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -20,41 +20,36 @@ class ProfileScreen extends StatelessWidget {
     final done = notifier.completedTasks.length;
     final pending = notifier.pendingTasks.length;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
-          children: [
-            _buildAppBar(context),
-            const SizedBox(height: 24),
-            _buildAvatar(user, name),
-            const SizedBox(height: 20),
-            _buildName(name, email),
-            const SizedBox(height: 28),
-            _buildStatsRow(total, done, pending),
-            const SizedBox(height: 24),
-            _buildSection('Account'),
-            const SizedBox(height: 12),
-            _buildTile(context, Icons.person_outline_rounded, 'Edit Profile', () => _showEditProfileDialog(context, user)),
-            _buildTile(context, Icons.lock_outline_rounded, 'Change Password', () => _showPasswordReset(context, user)),
-            _buildTile(context, Icons.notifications_outlined, 'Notifications', () => _showComingSoon(context, 'Notifications')),
-            const SizedBox(height: 24),
-            _buildSection('Preferences'),
-            const SizedBox(height: 12),
-            _buildTile(context, Icons.language_rounded, 'Language', () => _showComingSoon(context, 'Language Settings')),
-            _buildTile(context, Icons.palette_outlined, 'Appearance', () => _showComingSoon(context, 'Appearance Themes')),
-            _buildTile(context, Icons.calendar_today_outlined, 'Calendar Sync', () => _showComingSoon(context, 'Calendar Sync')),
-            const SizedBox(height: 24),
-            _buildSection('About'),
-            const SizedBox(height: 12),
-            _buildTile(context, Icons.info_outline_rounded, 'About QuickTask', () => _showComingSoon(context, 'About')),
-            _buildTile(context, Icons.privacy_tip_outlined, 'Privacy Policy', () => _showComingSoon(context, 'Privacy Policy')),
-            const SizedBox(height: 32),
-            _buildLogoutButton(context),
-          ],
-        ),
-      ),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100), // Extra padding for bottom nav
+      children: [
+        _buildAppBar(context),
+        const SizedBox(height: 24),
+        _buildAvatar(user, name),
+        const SizedBox(height: 20),
+        _buildName(name, email),
+        const SizedBox(height: 28),
+        _buildStatsRow(total, done, pending),
+        const SizedBox(height: 24),
+        _buildSection('Account'),
+        const SizedBox(height: 12),
+        _buildTile(context, Icons.person_outline_rounded, 'Edit Profile', () => _showEditProfileDialog(context, user)),
+        _buildTile(context, Icons.lock_outline_rounded, 'Change Password', () => _showPasswordReset(context, user)),
+        _buildTile(context, Icons.notifications_outlined, 'Notifications', () => _showComingSoon(context, 'Notifications')),
+        const SizedBox(height: 24),
+        _buildSection('Preferences'),
+        const SizedBox(height: 12),
+        _buildTile(context, Icons.language_rounded, 'Language', () => _showComingSoon(context, 'Language Settings')),
+        _buildTile(context, Icons.palette_outlined, 'Appearance', () => _showComingSoon(context, 'Appearance Themes')),
+        _buildTile(context, Icons.calendar_today_outlined, 'Calendar Sync', () => _showComingSoon(context, 'Calendar Sync')),
+        const SizedBox(height: 24),
+        _buildSection('About'),
+        const SizedBox(height: 12),
+        _buildTile(context, Icons.info_outline_rounded, 'About QuickTask', () => _showComingSoon(context, 'About')),
+        _buildTile(context, Icons.privacy_tip_outlined, 'Privacy Policy', () => _showComingSoon(context, 'Privacy Policy')),
+        const SizedBox(height: 32),
+        _buildLogoutButton(context),
+      ],
     );
   }
 
@@ -63,10 +58,7 @@ class ProfileScreen extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: _iconBtn(Icons.arrow_back_ios_new_rounded),
-            ),
+            const SizedBox(width: 42), // Spacer
             Text('Profile',
                 style: GoogleFonts.outfit(
                     color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),

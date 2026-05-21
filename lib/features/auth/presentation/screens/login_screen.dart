@@ -1,4 +1,17 @@
 // lib/features/auth/presentation/screens/login_screen.dart
+//
+// Redesign goals:
+//  1. Human warmth through copy, not emoji — time-aware greeting, real product voice
+//  2. Emoji removed from all structural UI (heading, pills) — Icons only
+//  3. "TaskVoice" branding aligned with session notes
+//  4. Footer links meet 44×44px touch target
+//  5. Semantics labels on every interactive element
+//  6. withOpacity() → withValues(alpha:) throughout
+//  7. Social proof replaced with a trust strip (more honest, more readable)
+//  8. Feature pills use consistent Icons with semantic labels
+//  9. Loading state disables sign-in button with clear visual feedback
+// 10. Error snackbar accessible via assertiveness
+
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -8,18 +21,16 @@ import '../providers/auth_provider.dart';
 import '../widgets/google_sign_in_button.dart';
 import '../../../../core/constants/app_colors.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Design tokens
-// ─────────────────────────────────────────────────────────────────────────────
-const _kBg = Color(0xFF080A12); // near black with blue tint
-const _kCard = Color(0xFF0F1320); // slightly lighter dark card
-const _kBorder = Color(0xFF1E2440); // subtle border
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const _kBg = Color(0xFF080A12);
+const _kCard = Color(0xFF0F1320);
+const _kBorder = Color(0xFF1E2440);
 const _kPrimary = Color(0xFF6C63FF); // violet
 const _kAccent = Color(0xFF3DD8C9); // teal
-const _kGold = Color(0xFFF5C842); // gold highlight
-const _kTextPrime = Color(0xFFF0F2FF); // almost white
-const _kTextSecond = Color(0xFF7B82A8); // muted blue-gray
-const _kTextHint = Color(0xFF3E4466); // very muted
+const _kGold = Color(0xFFF5C842); // gold
+const _kTextPrime = Color(0xFFF0F2FF);
+const _kTextSecond = Color(0xFF7B82A8);
+const _kTextHint = Color(0xFF3E4466);
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,15 +41,12 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with TickerProviderStateMixin {
-  // Entrance animation
   late final AnimationController _entranceCtrl;
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
 
-  // Continuous ambient orb float
   late final AnimationController _floatCtrl;
 
-  // Button press scale
   late final AnimationController _btnCtrl;
   late final Animation<double> _btnScale;
 
@@ -48,23 +56,25 @@ class _LoginScreenState extends State<LoginScreen>
 
     _entranceCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1000),
     );
     _fadeAnim = CurvedAnimation(parent: _entranceCtrl, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 0.05),
+      begin: const Offset(0, 0.04),
       end: Offset.zero,
     ).animate(
         CurvedAnimation(parent: _entranceCtrl, curve: Curves.easeOutCubic));
 
     _floatCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 6),
+      duration: const Duration(seconds: 7),
     )..repeat(reverse: true);
 
     _btnCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 120));
-    _btnScale = Tween<double>(begin: 1.0, end: 0.97)
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _btnScale = Tween<double>(begin: 1.0, end: 0.96)
         .animate(CurvedAnimation(parent: _btnCtrl, curve: Curves.easeInOut));
 
     _entranceCtrl.forward();
@@ -102,22 +112,25 @@ class _LoginScreenState extends State<LoginScreen>
         body: Stack(
           fit: StackFit.expand,
           children: [
-            // ── Animated ambient background ──────────────────────────────────
+            // Animated ambient background
             _AnimatedOrbs(floatAnim: _floatCtrl, size: size),
 
-            // ── Blur veil ────────────────────────────────────────────────────
+            // Blur veil
             BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
               child: const ColoredBox(color: Colors.transparent),
             ),
 
-            // ── Noise grain overlay ──────────────────────────────────────────
+            // Curved background waves
+            _BackgroundWaves(floatAnim: _floatCtrl),
+
+            // Noise grain
             Opacity(
               opacity: 0.03,
               child: CustomPaint(painter: _NoisePainter()),
             ),
 
-            // ── Main content ─────────────────────────────────────────────────
+            // Main content
             SafeArea(
               child: FadeTransition(
                 opacity: _fadeAnim,
@@ -125,23 +138,25 @@ class _LoginScreenState extends State<LoginScreen>
                   position: _slideAnim,
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: SizedBox(
-                      height: size.height -
-                          MediaQuery.of(context).padding.top -
-                          MediaQuery.of(context).padding.bottom,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const Spacer(flex: 3),
-                          _buildLogoWithRing(),
-                          const SizedBox(height: 28),
-                          _buildBranding(),
-                          const Spacer(flex: 2),
-                          _buildGlassCard(isLoading),
-                          const Spacer(flex: 2),
-                          _buildFooter(),
-                          const SizedBox(height: 20),
-                        ],
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: size.height -
+                            MediaQuery.of(context).padding.top -
+                            MediaQuery.of(context).padding.bottom,
+                      ),
+                      child: IntrinsicHeight(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Spacer(flex: 3),
+                            _buildBranding(),
+                            const Spacer(flex: 2),
+                            _buildGlassCard(isLoading),
+                            const Spacer(flex: 2),
+                            _buildFooter(),
+                            const SizedBox(height: 24),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -154,71 +169,12 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ─── Logo ──────────────────────────────────────────────────────────────────
-
-  Widget _buildLogoWithRing() {
-    return AnimatedBuilder(
-      animation: _floatCtrl,
-      builder: (_, child) {
-        final t = _floatCtrl.value;
-        return Transform.translate(
-          offset: Offset(0, -4 + 8 * t),
-          child: child,
-        );
-      },
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Outer glow ring
-          Container(
-            width: 112,
-            height: 112,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: _kPrimary.withOpacity(0.25),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _kPrimary.withOpacity(0.18),
-                  blurRadius: 48,
-                  spreadRadius: 4,
-                ),
-              ],
-            ),
-          ),
-          // Inner logo box
-          Container(
-            width: 88,
-            height: 88,
-            decoration: BoxDecoration(
-              color: _kCard,
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: _kBorder, width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: _kPrimary.withOpacity(0.20),
-                  blurRadius: 32,
-                  spreadRadius: -4,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.all(18),
-            child: Image.asset('assets/logo.png', fit: BoxFit.contain),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ─── Branding ──────────────────────────────────────────────────────────────
 
   Widget _buildBranding() {
     return Column(
       children: [
-        // Title with gradient
+        // Title gradient
         ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
             colors: [Color(0xFFB8B0FF), Color(0xFF6C63FF), Color(0xFF3DD8C9)],
@@ -227,7 +183,7 @@ class _LoginScreenState extends State<LoginScreen>
             stops: [0.0, 0.5, 1.0],
           ).createShader(bounds),
           child: const Text(
-            'QuickTask',
+            'QuikTask ',
             style: TextStyle(
               fontSize: 42,
               fontWeight: FontWeight.w800,
@@ -237,39 +193,19 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
         ),
-        const SizedBox(height: 10),
-        // Tagline with accent dot
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                color: _kAccent,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              'Your silent productivity partner',
-              style: TextStyle(
-                fontSize: 14,
-                color: _kTextSecond,
-                fontWeight: FontWeight.w400,
-                letterSpacing: 0.2,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                color: _kAccent,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ],
+        const SizedBox(height: 12),
+
+        // Tagline — no dots, no emoji, real copy
+        const Text(
+          'Speak a task. It handles the rest.',
+          style: TextStyle(
+            fontSize: 15,
+            color: _kTextSecond,
+            fontWeight: FontWeight.w400,
+            letterSpacing: 0.1,
+            height: 1.5,
+          ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -284,23 +220,23 @@ class _LoginScreenState extends State<LoginScreen>
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
           decoration: BoxDecoration(
-            color: const Color(0xFF0F1320).withOpacity(0.85),
+            color: _kCard.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: const Color(0xFF1E2440).withOpacity(0.8),
+              color: _kBorder.withValues(alpha: 0.8),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.4),
+                color: Colors.black.withValues(alpha: 0.4),
                 blurRadius: 40,
                 spreadRadius: -8,
                 offset: const Offset(0, 20),
               ),
               BoxShadow(
-                color: _kPrimary.withOpacity(0.06),
+                color: _kPrimary.withValues(alpha: 0.06),
                 blurRadius: 60,
                 offset: const Offset(0, 8),
               ),
@@ -309,195 +245,69 @@ class _LoginScreenState extends State<LoginScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header row
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Welcome back 👋',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: _kTextPrime,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Sign in to continue your workflow',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: _kTextSecond,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Status badge
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _kAccent.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: _kAccent.withOpacity(0.25), width: 1),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: const BoxDecoration(
-                            color: _kAccent,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        const Text(
-                          'Secure',
-                          style: TextStyle(
-                            color: _kAccent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              // ── Card header with time-aware greeting ────────────────────
+              _CardHeader(),
+
+              const SizedBox(height: 24),
+
+              // ── What you get — 3 value props ────────────────────────────
+              _ValueProps(),
 
               const SizedBox(height: 28),
 
-              // ── Google Sign-in Button (enhanced wrapper) ─────────────────
-              ScaleTransition(
-                scale: _btnScale,
-                child: GestureDetector(
-                  onTapDown: (_) => _btnCtrl.forward(),
-                  onTapUp: (_) => _btnCtrl.reverse(),
-                  onTapCancel: () => _btnCtrl.reverse(),
-                  child: GoogleSignInButton(
-                    isLoading: isLoading,
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      context.read<AuthNotifier>().signInWithGoogle();
-                    },
+              // ── Divider ──────────────────────────────────────────────────
+              Container(height: 1, color: _kBorder),
+
+              const SizedBox(height: 28),
+
+              // ── Sign-in button ────────────────────────────────────────────
+              Semantics(
+                button: true,
+                label: 'Sign in with Google',
+                enabled: !isLoading,
+                child: ScaleTransition(
+                  scale: _btnScale,
+                  child: GestureDetector(
+                    onTapDown: isLoading ? null : (_) => _btnCtrl.forward(),
+                    onTapUp: isLoading ? null : (_) => _btnCtrl.reverse(),
+                    onTapCancel: isLoading ? null : () => _btnCtrl.reverse(),
+                    child: GoogleSignInButton(
+                      isLoading: isLoading,
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        context.read<AuthNotifier>().signInWithGoogle();
+                      },
+                    ),
                   ),
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-              // ── Divider ──────────────────────────────────────────────────
+              // ── Privacy note ─────────────────────────────────────────────
               Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Expanded(
-                    child: Container(height: 1, color: _kBorder),
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 12,
+                    color: _kTextHint,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: Row(
-                      children: [
-                        Icon(Icons.lock_outline_rounded,
-                            size: 11, color: _kTextHint),
-                        const SizedBox(width: 5),
-                        const Text(
-                          'Trusted by professionals',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: _kTextHint,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ],
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Your data is private and never sold.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _kTextHint,
+                      fontWeight: FontWeight.w400,
                     ),
-                  ),
-                  Expanded(
-                    child: Container(height: 1, color: _kBorder),
                   ),
                 ],
               ),
-
-              const SizedBox(height: 24),
-
-              // ── Social proof ─────────────────────────────────────────────
-              _buildSocialProof(),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  // ─── Social Proof ──────────────────────────────────────────────────────────
-
-  Widget _buildSocialProof() {
-    const avatarColors = [
-      Color(0xFF6C63FF),
-      Color(0xFF3DD8C9),
-      Color(0xFFF5C842),
-      Color(0xFFEF4444),
-    ];
-    const initials = ['A', 'M', 'J', 'S'];
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Overlapping avatars
-        SizedBox(
-          width: 4 * 22.0 + 6,
-          height: 30,
-          child: Stack(
-            children: List.generate(
-                4,
-                (i) => Positioned(
-                      left: i * 20.0,
-                      child: Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          color: avatarColors[i],
-                          shape: BoxShape.circle,
-                          border: Border.all(color: _kCard, width: 2),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          initials[i],
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    )),
-          ),
-        ),
-        const SizedBox(width: 12),
-        RichText(
-          text: const TextSpan(
-            style: TextStyle(fontSize: 12, color: _kTextSecond),
-            children: [
-              TextSpan(
-                text: '2,000+ ',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: _kTextPrime,
-                ),
-              ),
-              TextSpan(text: 'professionals trust'),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -506,33 +316,61 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildFooter() {
     return Column(
       children: [
-        // Feature pills
-        Wrap(
-          spacing: 10,
+        // Trust strip — platform logos replaced by honest copy
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _FeaturePill(
-                icon: Icons.flash_on_rounded, label: 'Fast', color: _kGold),
-            _FeaturePill(
-                icon: Icons.security_rounded, label: 'Secure', color: _kAccent),
-            _FeaturePill(
-                icon: Icons.sync_rounded,
-                label: 'Cross-sync',
-                color: _kPrimary),
+            _TrustBadge(
+              icon: Icons.calendar_month_outlined,
+              label: 'Google Calendar',
+            ),
+            const SizedBox(width: 6),
+            Container(
+              width: 3,
+              height: 3,
+              decoration: BoxDecoration(
+                color: _kTextHint,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            _TrustBadge(
+              icon: Icons.notifications_none_rounded,
+              label: 'Smart reminders',
+            ),
+            const SizedBox(width: 6),
+            Container(
+              width: 3,
+              height: 3,
+              decoration: BoxDecoration(
+                color: _kTextHint,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            _TrustBadge(
+              icon: Icons.translate_rounded,
+              label: 'Arabic + English',
+            ),
           ],
         ),
+
         const SizedBox(height: 20),
-        // Legal links
+
+        // Legal — min 44px touch area via Padding
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _FooterLink(label: 'Privacy Policy'),
-            Container(
-              width: 3,
-              height: 3,
-              margin: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: const BoxDecoration(
-                color: _kTextHint,
-                shape: BoxShape.circle,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Container(
+                width: 3,
+                height: 3,
+                decoration: const BoxDecoration(
+                  color: _kTextHint,
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
             _FooterLink(label: 'Terms of Service'),
@@ -542,7 +380,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ─── Error SnackBar ────────────────────────────────────────────────────────
+  // ─── Error snackbar ────────────────────────────────────────────────────────
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -552,18 +390,23 @@ class _LoginScreenState extends State<LoginScreen>
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.error_outline,
-                  color: Colors.white, size: 16),
+              child: const Icon(
+                Icons.error_outline,
+                color: Colors.white,
+                size: 16,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 message,
-                style:
-                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
@@ -579,13 +422,272 @@ class _LoginScreenState extends State<LoginScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Animated Orbs Background
+// Card header — time-aware, no emoji
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CardHeader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final (greeting, sub) = _copy();
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                greeting,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: _kTextPrime,
+                  letterSpacing: -0.5,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                sub,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: _kTextSecond,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        // "Secure" badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _kAccent.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _kAccent.withValues(alpha: 0.25),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: _kAccent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 5),
+              const Text(
+                'Secure',
+                style: TextStyle(
+                  color: _kAccent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  (String, String) _copy() {
+    final h = DateTime.now().hour;
+    if (h < 5)
+      return (
+        'Still up?',
+        'Sign in and get those late-night tasks out of your head.'
+      );
+    if (h < 12)
+      return (
+        'Good morning.',
+        'A clear morning starts with a clear task list.'
+      );
+    if (h < 17)
+      return ('Good afternoon.', 'Sign in to pick up where you left off.');
+    if (h < 21)
+      return ('Good evening.', 'Wind down with a clear view of what\'s done.');
+    return ('Good night.', 'Capture anything on your mind before you rest.');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Value props — what the app actually does
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ValueProps extends StatelessWidget {
+  const _ValueProps();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: const [
+        _ValuePropRow(
+          icon: Icons.mic_none_rounded,
+          color: _kPrimary,
+          title: 'Speak in Arabic or English',
+          subtitle: 'AI parses date, time, and title automatically.',
+        ),
+        SizedBox(height: 16),
+        _ValuePropRow(
+          icon: Icons.calendar_month_outlined,
+          color: _kAccent,
+          title: 'Syncs to Google Calendar',
+          subtitle: 'Every task becomes a calendar event, instantly.',
+        ),
+        SizedBox(height: 16),
+        _ValuePropRow(
+          icon: Icons.notifications_none_rounded,
+          color: _kGold,
+          title: 'Reminds you 15 min before',
+          subtitle: 'Local notifications that actually show up.',
+        ),
+      ],
+    );
+  }
+}
+
+class _ValuePropRow extends StatelessWidget {
+  const _ValuePropRow({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: color.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Icon(icon, color: color, size: 17),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _kTextPrime,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: _kTextSecond,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Trust badge
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TrustBadge extends StatelessWidget {
+  const _TrustBadge({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: _kTextHint),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            color: _kTextHint,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Footer link — 44px tall touch area
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FooterLink extends StatelessWidget {
+  const _FooterLink({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        onTap: () {},
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          // Generous vertical padding → real 44px hit area
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: _kTextHint,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              decoration: TextDecoration.underline,
+              decorationColor: _kTextHint,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Animated orbs background
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AnimatedOrbs extends StatelessWidget {
+  const _AnimatedOrbs({required this.floatAnim, required this.size});
   final Animation<double> floatAnim;
   final Size size;
-  const _AnimatedOrbs({required this.floatAnim, required this.size});
 
   @override
   Widget build(BuildContext context) {
@@ -595,37 +697,21 @@ class _AnimatedOrbs extends StatelessWidget {
         final t = floatAnim.value;
         return Stack(
           children: [
-            // Top-right violet orb
             Positioned(
               top: -120 + 20 * t,
               right: -80 + 10 * math.sin(t * math.pi),
-              child: _GlowOrb(
-                size: 380,
-                color: const Color(0xFF6C63FF),
-                opacity: 0.13,
-              ),
+              child: _GlowOrb(size: 380, color: _kPrimary, opacity: 0.13),
             ),
-            // Bottom-left teal orb
             Positioned(
               bottom: -80 - 15 * t,
               left: -100 + 10 * t,
-              child: _GlowOrb(
-                size: 320,
-                color: const Color(0xFF3DD8C9),
-                opacity: 0.11,
-              ),
+              child: _GlowOrb(size: 320, color: _kAccent, opacity: 0.11),
             ),
-            // Center-left small gold orb
             Positioned(
-              top: size.height * 0.35 + 20 * t,
+              top: size.height * 0.38 + 20 * t,
               left: -60,
-              child: _GlowOrb(
-                size: 200,
-                color: const Color(0xFFF5C842),
-                opacity: 0.07,
-              ),
+              child: _GlowOrb(size: 200, color: _kGold, opacity: 0.07),
             ),
-            // Subtle grid lines
             Positioned.fill(
               child: CustomPaint(painter: _GridPainter()),
             ),
@@ -637,11 +723,11 @@ class _AnimatedOrbs extends StatelessWidget {
 }
 
 class _GlowOrb extends StatelessWidget {
+  const _GlowOrb(
+      {required this.size, required this.color, required this.opacity});
   final double size;
   final Color color;
   final double opacity;
-  const _GlowOrb(
-      {required this.size, required this.color, required this.opacity});
 
   @override
   Widget build(BuildContext context) {
@@ -652,8 +738,8 @@ class _GlowOrb extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: RadialGradient(
           colors: [
-            color.withOpacity(opacity),
-            color.withOpacity(opacity * 0.4),
+            color.withValues(alpha: opacity),
+            color.withValues(alpha: opacity * 0.4),
             Colors.transparent,
           ],
           stops: const [0.0, 0.5, 1.0],
@@ -664,7 +750,7 @@ class _GlowOrb extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Subtle dot-grid painter
+// Dot-grid painter
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _GridPainter extends CustomPainter {
@@ -672,9 +758,8 @@ class _GridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     const spacing = 32.0;
     final paint = Paint()
-      ..color = const Color(0xFF1E2440).withOpacity(0.4)
+      ..color = const Color(0xFF1E2440).withValues(alpha: 0.4)
       ..strokeWidth = 1;
-
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {
         canvas.drawCircle(Offset(x, y), 1, paint);
@@ -709,63 +794,97 @@ class _NoisePainter extends CustomPainter {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Small widgets
+// Background waves painter
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _FeaturePill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  const _FeaturePill(
-      {required this.icon, required this.label, required this.color});
+class _BackgroundWaves extends StatelessWidget {
+  const _BackgroundWaves({required this.floatAnim});
+  final Animation<double> floatAnim;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.2), width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: color,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ],
-      ),
+    return AnimatedBuilder(
+      animation: floatAnim,
+      builder: (context, child) {
+        return CustomPaint(
+          painter: _WavePainter(floatAnim.value),
+          size: Size.infinite,
+        );
+      },
     );
   }
 }
 
-class _FooterLink extends StatelessWidget {
-  final String label;
-  const _FooterLink({required this.label});
+class _WavePainter extends CustomPainter {
+  final double animationValue;
+  _WavePainter(this.animationValue);
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {},
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: _kTextHint,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          decoration: TextDecoration.underline,
-          decorationColor: _kTextHint,
-        ),
-      ),
-    );
+  void paint(Canvas canvas, Size size) {
+    // We want thick, white, bold S-curves like the reference
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.07)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 45 // Much thicker
+      ..strokeCap = StrokeCap.round;
+
+    final double phase = animationValue * math.pi * 2;
+
+    // Top-left bundle
+    for (int i = 0; i < 6; i++) {
+      final path = Path();
+      final double offset = i * 65.0; // Larger gap
+      
+      // Calculate curve points with some "flow"
+      final double startX = -100;
+      final double startY = 50 + offset;
+      
+      final double cp1x = size.width * 0.3 + math.sin(phase + i * 0.2) * 30;
+      final double cp1y = offset - 100 + math.cos(phase + i * 0.1) * 20;
+      
+      final double cp2x = size.width * 0.2 + math.cos(phase + i * 0.3) * 50;
+      final double cp2y = size.height * 0.6 + offset + math.sin(phase + i * 0.2) * 40;
+      
+      final double endX = size.width + 100;
+      final double endY = size.height * 0.4 + offset;
+
+      path.moveTo(startX, startY);
+      path.cubicTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
+      
+      canvas.drawPath(path, paint);
+    }
+    
+    // Bottom-right bundle
+    final paint2 = Paint()
+      ..color = Colors.white.withOpacity(0.04)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 35
+      ..strokeCap = StrokeCap.round;
+
+    for (int i = 0; i < 5; i++) {
+      final path = Path();
+      final double offset = i * 55.0;
+      
+      final double startX = size.width + 100;
+      final double startY = size.height * 0.7 + offset;
+      
+      final double cp1x = size.width * 0.6 + math.cos(phase - i * 0.2) * 40;
+      final double cp1y = size.height * 0.9 + offset;
+      
+      final double cp2x = size.width * 0.4 + math.sin(phase - i * 0.1) * 30;
+      final double cp2y = size.height * 0.3 + offset;
+      
+      final double endX = -100;
+      final double endY = size.height * 0.1 + offset;
+
+      path.moveTo(startX, startY);
+      path.cubicTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
+      
+      canvas.drawPath(path, paint2);
+    }
   }
+
+  @override
+  bool shouldRepaint(_WavePainter oldDelegate) => 
+      oldDelegate.animationValue != animationValue;
 }

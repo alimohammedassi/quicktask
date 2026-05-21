@@ -61,16 +61,16 @@ flutter:
     - assets/
 
 flutter_native_splash:
-  image: assets/logo.png
+  image: assets/Blue Modern Company Logo (2).png
   color: "#0D0D14"
-  branding: assets/logo.png
-  branding_mode: bottom
+  branding: assets/Blue Modern Company Logo (2).png
+  branding_mode: center
   android_12:
-    image: assets/logo.png
+    image: assets/Blue Modern Company Logo (2).png
     color: "#0D0D14"
 
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/logo.png"
+  image_path: assets\Blue Modern Company Logo (2).png
   min_sdk_android: 21

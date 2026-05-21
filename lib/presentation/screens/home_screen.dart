@@ -1,15 +1,12 @@
-﻿// lib/presentation/screens/home_screen.dart
+// lib/presentation/screens/home_screen.dart
 import 'dart:math' as math;
 import 'dart:ui';
-import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
-import '../../domain/models/subtask.dart';
-import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../providers/task_provider.dart';
 import '../providers/current_task_provider.dart';
 import 'add_task_screen.dart';
@@ -22,10 +19,8 @@ import '../../core/database/task_model_hive.dart';
 // ─────────────────────────────────────────────────────────────
 // Design tokens (consistent 8dp rhythm)
 // ─────────────────────────────────────────────────────────────
-const _kRadius = 20.0;
 const _kPad = 20.0;
-const _kCardPad = 16.0;
-const _kGap = 14.0;
+const _kGap = 10.0;
 
 // ═══════════════════════════════════════════════════════════════
 // HOME SCREEN
@@ -116,12 +111,12 @@ class _HomeScreenState extends State<HomeScreen>
               const _WeekNav(),
               const SizedBox(height: 20),
 
-              // ── Stats strip ───────────────────────────────────
-              _StatsStrip(pending: pending.length, completed: completed.length),
-              const SizedBox(height: 20),
-
-              // ── Hero card ─────────────────────────────────────
-              _HeroCard(currentTask: currentTask),
+              // ── Current Task Mint Card ─────────────────────────
+              _CurrentTaskMintCard(
+                currentTaskNotifier: currentTask,
+                completedTasks: completed,
+                pendingTasks: pending,
+              ),
               const SizedBox(height: 28),
 
               // ── Pending tasks ─────────────────────────────────
@@ -137,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen>
                   final task = pending[i];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: _kGap),
-                    child: TaskCard(
+                    child: AllTaskTile(
                       task: task,
                       onTap: () => _openDetail(task),
                       onToggleComplete: () => _completeTask(notifier, task),
@@ -162,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen>
                   final task = completed[i];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: _kGap),
-                    child: TaskCard(
+                    child: AllTaskTile(
                       task: task,
                       onTap: () => _openDetail(task),
                       onToggleComplete: () => _completeTask(notifier, task),
@@ -262,67 +257,213 @@ class _HomeScreenState extends State<HomeScreen>
 }
 
 // ═══════════════════════════════════════════════════════════════
-// STATS STRIP — quick summary above hero card
+// BENTO DASHBOARD — premium mint, purple, yellow widgets from screenshot
 // ═══════════════════════════════════════════════════════════════
-class _StatsStrip extends StatelessWidget {
-  const _StatsStrip({required this.pending, required this.completed});
-  final int pending, completed;
+class _CurrentTaskMintCard extends StatelessWidget {
+  const _CurrentTaskMintCard({
+    required this.currentTaskNotifier,
+    required this.completedTasks,
+    required this.pendingTasks,
+  });
+
+  final CurrentTaskNotifier currentTaskNotifier;
+  final List<TaskModelHive> completedTasks;
+  final List<TaskModelHive> pendingTasks;
 
   @override
   Widget build(BuildContext context) {
-    final total = pending + completed;
-    final pct = total == 0 ? 0.0 : completed / total;
+    final focusTask = currentTaskNotifier.currentTask;
+    
+    // Title determination: Pinned task or first pending task, otherwise "No active tasks"
+    final String focusTaskTitle = focusTask != null
+        ? focusTask.title
+        : (pendingTasks.isNotEmpty ? pendingTasks.first.title : 'No active tasks');
+
+    // Progress determination: Pinned task's subtasks progress, otherwise overall progress
+    final double focusProgress;
+    if (focusTask != null) {
+      focusProgress = currentTaskNotifier.progress;
+    } else {
+      final total = completedTasks.length + pendingTasks.length;
+      focusProgress = total == 0 ? 0.0 : completedTasks.length / total;
+    }
+
+    // Categories: Pinned task's categories, or first pending's categories, or default
+    final List<String> categories = focusTask != null
+        ? focusTask.categories
+        : (pendingTasks.isNotEmpty ? pendingTasks.first.categories : []);
+
+    final displayCategories = categories.isEmpty ? ['QuickTask'] : categories;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        borderRadius: BorderRadius.circular(_kRadius),
-        border: Border.all(color: AppColors.divider, width: 1),
+        color: AppColors.mint,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.mint.withOpacity(0.12),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _StatItem(
-              value: '$total', label: 'Total', color: AppColors.textPrimary),
-          _VertDivider(),
-          _StatItem(
-              value: '$pending', label: 'Pending', color: AppColors.yellow),
-          _VertDivider(),
-          _StatItem(value: '$completed', label: 'Done', color: AppColors.mint),
-          const Spacer(),
-          // Mini completion bar
+          // Left Side: Text and Pills
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Current tasks'.toUpperCase(),
+                      style: TextStyle(
+                        color: Colors.black.withOpacity(0.4),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      focusTaskTitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.6,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    // White trend pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.trending_up_rounded, color: Colors.black, size: 12),
+                          SizedBox(width: 4),
+                          Text(
+                            '+12%',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    // Black category tag pills
+                    ...displayCategories.take(2).map((cat) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        cat.toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    )),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          
+          // Right Side: Navigation Buttons & Gauge
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('${(pct * 100).round()}%',
-                  style: TextStyle(
-                    color: AppColors.mint,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  )),
-              const SizedBox(height: 4),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: SizedBox(
-                  width: 80,
-                  height: 6,
-                  child: Stack(
-                    children: [
-                      Container(color: AppColors.innerCard),
-                      FractionallySizedBox(
-                        widthFactor: pct,
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [AppColors.mint, AppColors.purple],
-                            ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Share Button
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                    },
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.share_rounded, color: Colors.black, size: 16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  
+                  // Diagonal Arrow Button to Stats Screen
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      Navigator.push(
+                        context,
+                        PageRouteBuilder(
+                          pageBuilder: (_, __, ___) => const SummaryScreen(),
+                          transitionsBuilder: (_, a, __, child) => SlideTransition(
+                            position: Tween(begin: const Offset(0, 1), end: Offset.zero)
+                                .animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
+                            child: child,
                           ),
                         ),
+                      );
+                    },
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: const BoxDecoration(
+                        color: Colors.black,
+                        shape: BoxShape.circle,
                       ),
-                    ],
+                      child: const Center(
+                        child: Icon(Icons.arrow_outward_rounded, color: Colors.white, size: 16),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
+              const SizedBox(height: 16),
+              _SemiDonutGauge(progress: focusProgress),
             ],
           ),
         ],
@@ -331,38 +472,89 @@ class _StatsStrip extends StatelessWidget {
   }
 }
 
-class _StatItem extends StatelessWidget {
-  const _StatItem(
-      {required this.value, required this.label, required this.color});
-  final String value, label;
-  final Color color;
+class _SemiDonutGauge extends StatelessWidget {
+  const _SemiDonutGauge({required this.progress});
+  final double progress;
 
   @override
-  Widget build(BuildContext context) => Column(
-        children: [
-          Text(value,
-              style: TextStyle(
-                color: color,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              )),
-          Text(label,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
-              )),
-        ],
-      );
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 100,
+      height: 100,
+      child: CustomPaint(
+        painter: _SemiDonutPainter(progress: progress),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 12),
+              Text(
+                '${(progress * 100).round()}%',
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -1,
+                ),
+              ),
+              Text(
+                'Done',
+                style: TextStyle(
+                  color: Colors.black.withOpacity(0.5),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _VertDivider extends StatelessWidget {
+class _SemiDonutPainter extends CustomPainter {
+  const _SemiDonutPainter({required this.progress});
+  final double progress;
+
   @override
-  Widget build(BuildContext context) => Container(
-        width: 1,
-        height: 28,
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        color: AppColors.divider,
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2 + 10);
+    final radius = (size.width - 16) / 2;
+    const start = -math.pi * 1.1;
+    const sweep = math.pi * 1.2;
+
+    // Background Track
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      start,
+      sweep,
+      false,
+      Paint()
+        ..color = Colors.black.withOpacity(0.08)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 12
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Active Progress Arc
+    if (progress > 0.01) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        start,
+        sweep * progress.clamp(0.0, 1.0),
+        false,
+        Paint()
+          ..color = Colors.black
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 12
+          ..strokeCap = StrokeCap.round,
       );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SemiDonutPainter old) => old.progress != progress;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -543,541 +735,6 @@ class _ChevronBtn extends StatelessWidget {
         ),
       );
 }
-
-// ═══════════════════════════════════════════════════════════════
-// HERO CARD — current task + subtasks + progress arc
-// ═══════════════════════════════════════════════════════════════
-class _HeroCard extends StatefulWidget {
-  const _HeroCard({required this.currentTask});
-  final CurrentTaskNotifier currentTask;
-
-  @override
-  State<_HeroCard> createState() => _HeroCardState();
-}
-
-class _HeroCardState extends State<_HeroCard> with TickerProviderStateMixin {
-  late AnimationController _arcCtrl;
-  late Animation<double> _arcAnim;
-  late ConfettiController _confettiCtrl;
-  bool _hasCelebrated = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _arcCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 600));
-    _arcAnim = CurvedAnimation(parent: _arcCtrl, curve: Curves.easeOutCubic);
-    _confettiCtrl =
-        ConfettiController(duration: const Duration(milliseconds: 1500));
-    _arcCtrl.forward();
-  }
-
-  @override
-  void didUpdateWidget(covariant _HeroCard old) {
-    super.didUpdateWidget(old);
-    _arcCtrl.forward(from: 0);
-    final progress = widget.currentTask.progress;
-    if (progress == 1.0 &&
-        widget.currentTask.totalCount > 0 &&
-        !_hasCelebrated) {
-      _hasCelebrated = true;
-      HapticFeedback.heavyImpact();
-      _confettiCtrl.play();
-    }
-    if (progress < 1.0) _hasCelebrated = false;
-  }
-
-  @override
-  void dispose() {
-    _arcCtrl.dispose();
-    _confettiCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final task = widget.currentTask.currentTask;
-
-    if (task == null) return _EmptyHeroCard();
-
-    final progress = widget.currentTask.progress;
-    final allDone = progress == 1.0 && widget.currentTask.totalCount > 0;
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.cardBg,
-            borderRadius: BorderRadius.circular(_kRadius),
-            border: Border.all(color: AppColors.divider, width: 1),
-            // Subtle gradient shimmer on top
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.cardBg,
-                AppColors.cardBg,
-                allDone
-                    ? AppColors.gold.withOpacity(0.05)
-                    : AppColors.mint.withOpacity(0.04),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: (allDone ? AppColors.gold : AppColors.mint)
-                    .withOpacity(0.08),
-                blurRadius: 24,
-                spreadRadius: -4,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // ── Top section ──────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Label
-                          Row(
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                margin: const EdgeInsets.only(right: 6),
-                                decoration: BoxDecoration(
-                                  color:
-                                      allDone ? AppColors.gold : AppColors.mint,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              Text('Current task',
-                                  style: TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 12,
-                                  )),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-
-                          // Task title
-                          Text(task.title,
-                              style: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                                height: 1.2,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis),
-                          const SizedBox(height: 8),
-
-                          // Trend indicator
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: (allDone ? AppColors.gold : AppColors.mint)
-                                  .withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  allDone
-                                      ? Icons.check_rounded
-                                      : Icons.trending_up_rounded,
-                                  size: 12,
-                                  color:
-                                      allDone ? AppColors.gold : AppColors.mint,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  allDone
-                                      ? 'All done!'
-                                      : '${widget.currentTask.completedCount}/${widget.currentTask.totalCount} done',
-                                  style: TextStyle(
-                                    color: allDone
-                                        ? AppColors.gold
-                                        : AppColors.mint,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Category chips
-                          Wrap(
-                            spacing: 8,
-                            children: task.categories
-                                .take(2)
-                                .map((c) => _TagChip(label: c))
-                                .toList(),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Right column: buttons + arc
-                    Column(
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _CircleIconBtn(icon: Icons.ios_share_rounded),
-                            const SizedBox(width: 8),
-                            _CircleIconBtn(icon: Icons.arrow_outward_rounded),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        AnimatedBuilder(
-                          animation: _arcAnim,
-                          builder: (_, __) => _ProgressArc(
-                            progress: progress * _arcAnim.value,
-                            allDone: allDone,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // ── Subtasks section ─────────────────────────────
-              if (widget.currentTask.subtasks.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Expanded(
-                          child:
-                              Container(height: 1, color: AppColors.divider)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Row(
-                          children: [
-                            Icon(Icons.checklist_rounded,
-                                size: 12, color: AppColors.textSecondary),
-                            const SizedBox(width: 4),
-                            Text('Subtasks',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                )),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                          child:
-                              Container(height: 1, color: AppColors.divider)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                  child: Column(
-                    children: widget.currentTask.subtasks
-                        .map((s) => _SubtaskRow(
-                              subtask: s,
-                              onToggle: () => widget.currentTask
-                                  .toggleSubtask(task.id, s.id),
-                            ))
-                        .toList(),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-
-        // Confetti
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiCtrl,
-              blastDirectionality: BlastDirectionality.explosive,
-              emissionFrequency: 0.25,
-              numberOfParticles: 20,
-              maxBlastForce: 22,
-              gravity: 0.3,
-              colors: const [
-                AppColors.mint,
-                AppColors.purple,
-                AppColors.yellow,
-                AppColors.gold
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _EmptyHeroCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-        decoration: BoxDecoration(
-          color: AppColors.cardBg,
-          borderRadius: BorderRadius.circular(_kRadius),
-          border: Border.all(color: AppColors.divider),
-          // Dashed border effect via gradient
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppColors.innerCard,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.push_pin_outlined,
-                  color: AppColors.textHint, size: 24),
-            ),
-            const SizedBox(height: 12),
-            const Text('No pinned task',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                )),
-            const SizedBox(height: 4),
-            const Text('Open a task and pin it as your current focus.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                )),
-          ],
-        ),
-      );
-}
-
-// ─── Tag chip ──────────────────────────────────────────────────
-class _TagChip extends StatelessWidget {
-  const _TagChip({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: AppColors.innerCard,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.divider),
-        ),
-        child: Text(label,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            )),
-      );
-}
-
-// ─── Circle icon button ────────────────────────────────────────
-class _CircleIconBtn extends StatelessWidget {
-  const _CircleIconBtn({required this.icon});
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: AppColors.innerCard,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.divider),
-        ),
-        child: Icon(icon, size: 16, color: AppColors.textSecondary),
-      );
-}
-
-// ─── Progress arc ──────────────────────────────────────────────
-class _ProgressArc extends StatelessWidget {
-  const _ProgressArc({required this.progress, required this.allDone});
-  final double progress;
-  final bool allDone;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = allDone ? AppColors.gold : AppColors.mint;
-    return SizedBox(
-      width: 76,
-      height: 76,
-      child: CustomPaint(
-        painter: _SemiArcPainter(progress: progress, color: color),
-        child: Center(
-          child: allDone
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.check_rounded, color: AppColors.gold, size: 16),
-                    Text('Done!',
-                        style: TextStyle(
-                          color: AppColors.gold,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                        )),
-                  ],
-                )
-              : Text('${(progress * 100).round()}%',
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  )),
-        ),
-      ),
-    );
-  }
-}
-
-class _SemiArcPainter extends CustomPainter {
-  const _SemiArcPainter({required this.progress, required this.color});
-  final double progress;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - 10) / 2;
-    const start = -math.pi * 0.75;
-    const sweep = math.pi * 1.5;
-
-    // Track
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      start,
-      sweep,
-      false,
-      Paint()
-        ..color = AppColors.innerCard
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 8
-        ..strokeCap = StrokeCap.round,
-    );
-
-    // Progress
-    if (progress > 0.01) {
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        start,
-        sweep * progress,
-        false,
-        Paint()
-          ..shader = SweepGradient(
-            startAngle: start,
-            endAngle: start + sweep * progress,
-            colors: [color.withOpacity(0.6), color],
-          ).createShader(Rect.fromCircle(center: center, radius: radius))
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 8
-          ..strokeCap = StrokeCap.round,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_SemiArcPainter old) =>
-      old.progress != progress || old.color != color;
-}
-
-// ─── Subtask row ───────────────────────────────────────────────
-class _SubtaskRow extends StatelessWidget {
-  const _SubtaskRow({required this.subtask, required this.onToggle});
-  final SubTask subtask;
-  final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onToggle,
-        splashColor: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-          child: Row(
-            children: [
-              // Checkbox
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color:
-                      subtask.isCompleted ? AppColors.mint : Colors.transparent,
-                  border: subtask.isCompleted
-                      ? null
-                      : Border.all(color: AppColors.checkboxBorder, width: 1.5),
-                  boxShadow: subtask.isCompleted
-                      ? [
-                          BoxShadow(
-                            color: AppColors.mint.withOpacity(0.3),
-                            blurRadius: 8,
-                            spreadRadius: -2,
-                          )
-                        ]
-                      : null,
-                ),
-                child: subtask.isCompleted
-                    ? const Icon(Icons.check_rounded,
-                        size: 14, color: AppColors.textDark)
-                    : null,
-              ),
-              const SizedBox(width: 12),
-
-              // Title
-              Expanded(
-                child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
-                  style: TextStyle(
-                    color: subtask.isCompleted
-                        ? AppColors.textHint
-                        : AppColors.textPrimary,
-                    fontSize: 13,
-                    fontWeight:
-                        subtask.isCompleted ? FontWeight.w400 : FontWeight.w500,
-                    decoration: subtask.isCompleted
-                        ? TextDecoration.lineThrough
-                        : TextDecoration.none,
-                    decorationColor: AppColors.textHint,
-                  ),
-                  child: Text(subtask.title),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Removed _SwipeableTaskCard, _SwipeBg, and _TaskListCard in favor of widgets/task_card.dart
 
 // ═══════════════════════════════════════════════════════════════
 // SECTION HEADER

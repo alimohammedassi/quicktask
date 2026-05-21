@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class GoogleSignInButton extends StatefulWidget {
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool isLoading;
 
   const GoogleSignInButton({
     super.key,
-    required this.onPressed,
+    this.onPressed,
     this.isLoading = false,
   });
 
@@ -25,7 +25,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) {
         setState(() => _isPressed = false);
-        if (!widget.isLoading) widget.onPressed();
+        if (!widget.isLoading) widget.onPressed?.call();
       },
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedScale(
