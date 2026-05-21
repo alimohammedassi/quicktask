@@ -75,7 +75,9 @@ class _TaskCardState extends State<TaskCard>
       direction: DismissDirection.horizontal,
       background: _ActionBg(
         color: AppColors.mint,
-        icon: isDone ? Icons.remove_done_rounded : Icons.check_circle_outline_rounded,
+        icon: isDone
+            ? Icons.remove_done_rounded
+            : Icons.check_circle_outline_rounded,
         label: isDone ? 'UNDO' : 'DONE',
         alignment: AlignmentDirectional.centerStart,
       ),
@@ -139,7 +141,8 @@ class _Shell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardColor = _done ? const Color(0xFF070707) : const Color(0xFF0E0E0E);
-    final borderColor = _done ? const Color(0xFF141414) : const Color(0xFF1C1C1C);
+    final borderColor =
+        _done ? const Color(0xFF141414) : const Color(0xFF1C1C1C);
 
     return Container(
       decoration: BoxDecoration(
@@ -170,7 +173,9 @@ class _Shell extends StatelessWidget {
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
-                      children: task.categories.map((cat) => _CategoryTag(cat: cat)).toList(),
+                      children: task.categories
+                          .map((cat) => _CategoryTag(cat: cat))
+                          .toList(),
                     ),
                     const SizedBox(height: 8),
                   ],
@@ -193,7 +198,8 @@ class _Shell extends StatelessWidget {
                   ),
 
                   // Description
-                  if (task.description != null && task.description!.isNotEmpty) ...[
+                  if (task.description != null &&
+                      task.description!.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
                       task.description!,
@@ -214,13 +220,17 @@ class _Shell extends StatelessWidget {
                       Icon(
                         Icons.schedule_rounded,
                         size: 13,
-                        color: cs == _State.overdue ? AppColors.error : AppColors.textSecondary,
+                        color: cs == _State.overdue
+                            ? AppColors.error
+                            : AppColors.textSecondary,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         DateFormat('MMM d · h:mm a').format(task.scheduledAt),
                         style: TextStyle(
-                          color: cs == _State.overdue ? AppColors.error : AppColors.textSecondary,
+                          color: cs == _State.overdue
+                              ? AppColors.error
+                              : AppColors.textSecondary,
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                         ),
@@ -346,20 +356,7 @@ class _CategoryTag extends StatelessWidget {
   }
 
   Color _getCategoryColor(String cat) {
-    switch (cat.toLowerCase()) {
-      case 'work':
-        return AppColors.purple;
-      case 'personal':
-        return AppColors.mint;
-      case 'health':
-        return AppColors.yellow;
-      case 'learning':
-        return const Color(0xFF8CEEFA);
-      case 'shopping':
-        return const Color(0xFFFF94E8);
-      default:
-        return AppColors.mint;
-    }
+    return AppColors.getCategoryColor(cat);
   }
 }
 
@@ -473,193 +470,209 @@ class AllTaskTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final done = task.isCompleted;
-    
-    // Deterministic pastel colors based on taskId hashcode
-    final colors = [AppColors.purple, AppColors.yellow, AppColors.mint];
-    final bg = colors[task.id.hashCode.abs() % colors.length];
+
+    // Use first category color or deterministic fallback pastel color
+    final Color bg;
+    if (task.categories.isNotEmpty) {
+      bg = AppColors.getCategoryColor(task.categories.first);
+    } else {
+      final colors = [AppColors.purple, AppColors.yellow, AppColors.mint];
+      bg = colors[task.id.hashCode.abs() % colors.length];
+    }
 
     final currentTaskNotifier = Provider.of<CurrentTaskNotifier>(context);
     final subtasks = currentTaskNotifier.subtasksForTask(task.id);
     final completedCount = subtasks.where((s) => s.isCompleted).length;
     final totalCount = subtasks.length;
 
-    final double progress = subtasks.isEmpty
-        ? (done ? 1.0 : 0.0)
-        : (completedCount / totalCount);
+    final double progress =
+        subtasks.isEmpty ? (done ? 1.0 : 0.0) : (completedCount / totalCount);
 
     final String subtitleText = subtasks.isEmpty
         ? '${(task.title.length % 5) + 3} participants'
         : '$completedCount/$totalCount subtasks';
 
     return Dismissible(
-        key: Key('all_${task.id}'),
-        direction: DismissDirection.horizontal,
-        background: _ActionBg(
-          color: AppColors.mint,
-          icon: done ? Icons.remove_done_rounded : Icons.check_circle_outline_rounded,
-          label: done ? 'UNDO' : 'DONE',
-          alignment: AlignmentDirectional.centerStart,
-        ),
-        secondaryBackground: const _ActionBg(
-          color: AppColors.error,
-          icon: Icons.delete_outline_rounded,
-          label: 'DELETE',
-          alignment: AlignmentDirectional.centerEnd,
-        ),
-        confirmDismiss: (direction) async {
-          HapticFeedback.mediumImpact();
-          if (direction == DismissDirection.endToStart) {
-            onDelete();
-            return true;
-          } else if (direction == DismissDirection.startToEnd) {
-            onToggleComplete?.call();
-            return false;
-          }
+      key: Key('all_${task.id}'),
+      direction: DismissDirection.horizontal,
+      background: _ActionBg(
+        color: AppColors.mint,
+        icon: done
+            ? Icons.remove_done_rounded
+            : Icons.check_circle_outline_rounded,
+        label: done ? 'UNDO' : 'DONE',
+        alignment: AlignmentDirectional.centerStart,
+      ),
+      secondaryBackground: const _ActionBg(
+        color: AppColors.error,
+        icon: Icons.delete_outline_rounded,
+        label: 'DELETE',
+        alignment: AlignmentDirectional.centerEnd,
+      ),
+      confirmDismiss: (direction) async {
+        HapticFeedback.mediumImpact();
+        if (direction == DismissDirection.endToStart) {
+          onDelete();
+          return true;
+        } else if (direction == DismissDirection.startToEnd) {
+          onToggleComplete?.call();
           return false;
-        },
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(24),
-            onTap: onTap,
-            child: Container(
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.black.withOpacity(0.08), width: 1.2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 18, 18),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Category tags if present
-                          if (task.categories.isNotEmpty) ...[
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              children: task.categories.map((cat) => Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.06),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.black.withOpacity(0.08), width: 0.8),
-                                ),
-                                child: Text(
-                                  cat.toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              )).toList(),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
+        }
+        return false;
+      },
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(24),
+              border:
+                  Border.all(color: Colors.black.withOpacity(0.08), width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 18, 18),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Category tags if present
+                        if (task.categories.isNotEmpty) ...[
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: task.categories
+                                .map((cat) => Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.06),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                            color:
+                                                Colors.black.withOpacity(0.08),
+                                            width: 0.8),
+                                      ),
+                                      child: Text(
+                                        cat.toUpperCase(),
+                                        style: const TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ))
+                                .toList(),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
 
-                          // Title
+                        // Title
+                        Text(
+                          task.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                            decoration:
+                                done ? TextDecoration.lineThrough : null,
+                            decorationThickness: 2,
+                          ),
+                        ),
+
+                        // Description
+                        if (task.description != null &&
+                            task.description!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
                           Text(
-                            task.title,
+                            task.description!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.4,
-                              decoration: done ? TextDecoration.lineThrough : null,
-                              decorationThickness: 2,
+                              color: Colors.black.withOpacity(0.6),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          
-                          // Description
-                          if (task.description != null && task.description!.isNotEmpty) ...[
-                            const SizedBox(height: 4),
+                        ],
+                        const SizedBox(height: 14),
+
+                        // Stacked Avatars + Subtasks/Participants Count Row
+                        Row(
+                          children: [
+                            const _OverlappingAvatars(),
+                            const SizedBox(width: 8),
                             Text(
-                              task.description!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              subtitleText,
                               style: TextStyle(
                                 color: Colors.black.withOpacity(0.6),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ],
-                          const SizedBox(height: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
 
-                          // Stacked Avatars + Subtasks/Participants Count Row
-                          Row(
-                            children: [
-                              const _OverlappingAvatars(),
-                              const SizedBox(width: 8),
-                              Text(
-                                subtitleText,
-                                style: TextStyle(
-                                  color: Colors.black.withOpacity(0.6),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
+                  // Circular Progress Ring
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      onToggleComplete?.call();
+                    },
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            value: progress,
+                            strokeWidth: 3.5,
+                            backgroundColor: Colors.black.withOpacity(0.1),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                                Colors.black),
+                          ),
+                          Text(
+                            '${(progress * 100).round()}%',
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    
-                    // Circular Progress Ring
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.mediumImpact();
-                        onToggleComplete?.call();
-                      },
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                        ),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            CircularProgressIndicator(
-                              value: progress,
-                              strokeWidth: 3.5,
-                              backgroundColor: Colors.black.withOpacity(0.1),
-                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.black),
-                            ),
-                            Text(
-                              '${(progress * 100).round()}%',
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 }
 

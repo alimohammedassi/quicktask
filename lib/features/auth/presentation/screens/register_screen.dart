@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/google_sign_in_button.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_localizations.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -109,21 +110,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildHeader() {
-    return const Column(
+    return Column(
       children: [
         Text(
-          'Create Account',
-          style: TextStyle(
+          context.translate('create_account'),
+          style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
             letterSpacing: -0.5,
           ),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Text(
-          'Sign up to get started with QuickTask',
-          style: TextStyle(
+          context.translate('signup_subtitle'),
+          style: const TextStyle(
             fontSize: 14,
             color: AppColors.textSecondary,
           ),
@@ -154,7 +155,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 _buildTextField(
                   controller: _nameCtrl,
-                  hint: 'Full Name',
+                  hint: context.translate('full_name'),
                   icon: Icons.person_outline,
                   textInputAction: TextInputAction.next,
                   validator: _validateName,
@@ -162,7 +163,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _emailCtrl,
-                  hint: 'Email',
+                  hint: context.translate('email'),
                   icon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
@@ -171,7 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _passwordCtrl,
-                  hint: 'Password',
+                  hint: context.translate('password'),
                   icon: Icons.lock_outline,
                   obscure: _obscurePassword,
                   suffix: _buildPasswordToggle(),
@@ -181,7 +182,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _confirmPasswordCtrl,
-                  hint: 'Confirm Password',
+                  hint: context.translate('confirm_password'),
                   icon: Icons.lock_outline,
                   obscure: _obscureConfirmPassword,
                   suffix: _buildConfirmPasswordToggle(),
@@ -292,10 +293,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     };
 
     final label = switch (strength) {
-      0 || 1 => 'Weak',
-      2 => 'Fair',
-      3 => 'Good',
-      _ => 'Strong',
+      0 || 1 => context.translate('weak'),
+      2 => context.translate('fair'),
+      3 => context.translate('good'),
+      _ => context.translate('strong'),
     };
 
     return Column(
@@ -318,7 +319,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Password strength: $label',
+          '${context.translate('pass_strength')}$label',
           style: TextStyle(
             fontSize: 11,
             color: color,
@@ -352,9 +353,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.black54),
                 ),
               )
-            : const Text(
-                'Create Account',
-                style: TextStyle(
+            : Text(
+                context.translate('create_account'),
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: Colors.black,
@@ -368,11 +369,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Row(
       children: [
         Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.08))),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            'OR',
-            style: TextStyle(
+            context.translate('or'),
+            style: const TextStyle(
               fontSize: 12,
               color: AppColors.textSecondary,
             ),
@@ -387,15 +388,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
-          'Already have an account? ',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        Text(
+          context.translate('already_have_account'),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
         ),
         GestureDetector(
           onTap: () => context.go('/login'),
-          child: const Text(
-            'Sign In',
-            style: TextStyle(
+          child: Text(
+            context.translate('sign_in'),
+            style: const TextStyle(
               color: AppColors.accent,
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -427,26 +428,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   String? _validateName(String? value) {
-    if (value == null || value.isEmpty) return 'Please enter your name';
-    if (value.length < 2) return 'Name must be at least 2 characters';
+    if (value == null || value.isEmpty) return context.translate('err_enter_name');
+    if (value.length < 2) return context.translate('err_name_short');
     return null;
   }
 
   String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) return 'Please enter your email';
-    if (!value.contains('@')) return 'Please enter a valid email';
+    if (value == null || value.isEmpty) return context.translate('err_enter_email');
+    if (!value.contains('@')) return context.translate('err_valid_email');
     return null;
   }
 
   String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) return 'Please enter a password';
-    if (value.length < 8) return 'Password must be at least 8 characters';
+    if (value == null || value.isEmpty) return context.translate('err_enter_password');
+    if (value.length < 8) return context.translate('err_password_short');
     return null;
   }
 
   String? _validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) return 'Please confirm your password';
-    if (value != _passwordCtrl.text) return 'Passwords do not match';
+    if (value == null || value.isEmpty) return context.translate('err_confirm_password');
+    if (value != _passwordCtrl.text) return context.translate('err_passwords_match');
     return null;
   }
 }

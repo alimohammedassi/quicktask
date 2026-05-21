@@ -3,11 +3,70 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/localization/app_localizations.dart';
 import '../providers/task_provider.dart';
 
-class SummaryScreen extends StatelessWidget {
+class SummaryScreen extends StatefulWidget {
   const SummaryScreen({super.key});
+
+  @override
+  State<SummaryScreen> createState() => _SummaryScreenState();
+}
+
+class _SummaryScreenState extends State<SummaryScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _entranceCtrl;
+  late final List<Animation<double>> _fadeAnims;
+  late final List<Animation<Offset>> _slideAnims;
+  static const _cardCount = 6;
+
+  @override
+  void initState() {
+    super.initState();
+    _entranceCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+
+    _fadeAnims = List.generate(_cardCount, (i) {
+      final start = (i * 0.1).clamp(0.0, 0.7);
+      final end = (start + 0.35).clamp(0.0, 1.0);
+      return CurvedAnimation(
+        parent: _entranceCtrl,
+        curve: Interval(start, end, curve: Curves.easeOut),
+      );
+    });
+
+    _slideAnims = List.generate(_cardCount, (i) {
+      final start = (i * 0.1).clamp(0.0, 0.7);
+      final end = (start + 0.35).clamp(0.0, 1.0);
+      return Tween<Offset>(
+        begin: const Offset(0, 0.12),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _entranceCtrl,
+        curve: Interval(start, end, curve: Curves.easeOutCubic),
+      ));
+    });
+
+    _entranceCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _entranceCtrl.dispose();
+    super.dispose();
+  }
+
+  Widget _anim(int index, Widget child) => FadeTransition(
+        opacity: _fadeAnims[index],
+        child: SlideTransition(
+          position: _slideAnims[index],
+          child: child,
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -34,14 +93,14 @@ class SummaryScreen extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
                 children: [
-                  _ActivityCard(),
+                  _anim(0, _ActivityCard()),
                   const SizedBox(height: 16),
-                  Row(
+                  _anim(1, Row(
                     children: [
                       Expanded(
                         child: _StatCard(
                           value: '${focusHours}h',
-                          label: 'Total Focus',
+                          label: context.translate('total_focus'),
                           color: AppColors.purple,
                           change: '+${focusHours > 0 ? focusHours : 12}',
                         ),
@@ -50,21 +109,21 @@ class SummaryScreen extends StatelessWidget {
                       Expanded(
                         child: _StatCard(
                           value: '$done',
-                          label: 'Tasks Done',
+                          label: context.translate('tasks_done'),
                           color: AppColors.yellow,
                           change: '+${done > 0 ? done : 12}',
                         ),
                       ),
                     ],
-                  ),
+                  )),
                   const SizedBox(height: 16),
-                  _OverviewCard(cPct: cPct, iPct: iPct, oPct: oPct),
+                  _anim(2, _OverviewCard(cPct: cPct, iPct: iPct, oPct: oPct)),
                   const SizedBox(height: 16),
-                  _ProductivityInsightsCard(),
+                  _anim(3, _ProductivityInsightsCard()),
                   const SizedBox(height: 16),
-                  _CategoryBreakdownCard(),
+                  _anim(4, _CategoryBreakdownCard()),
                   const SizedBox(height: 16),
-                  _ProcessHistoryCard(),
+                  _anim(5, _ProcessHistoryCard()),
                 ],
               ),
             ),
@@ -88,14 +147,14 @@ class _AppBar extends StatelessWidget {
           if (canPop)
             _iconBtn(
               context,
-              Icons.keyboard_arrow_left_rounded,
+              context.isRtl ? Icons.keyboard_arrow_right_rounded : Icons.keyboard_arrow_left_rounded,
               onTap: () => Navigator.pop(context),
             )
           else
             const SizedBox(width: 42),
           Text(
-            'Summary',
-            style: GoogleFonts.outfit(
+            context.translate('summary'),
+            style: GoogleFonts.plusJakartaSans(
               color: AppColors.textPrimary,
               fontSize: 20,
               fontWeight: FontWeight.w800,
@@ -122,7 +181,7 @@ class _AppBar extends StatelessWidget {
             color: AppColors.cardBg,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: AppColors.divider.withOpacity(0.5),
+              color: AppColors.divider.withValues(alpha: 0.5),
               width: 1.2,
             ),
           ),
@@ -163,8 +222,6 @@ class _ActivityCard extends StatelessWidget {
       '0',
     ];
 
-    final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
     int highIdx = 0;
     for (int i = 0; i < counts.length; i++) {
       if (counts[i] == maxCount && maxCount > 0) highIdx = i;
@@ -172,6 +229,7 @@ class _ActivityCard extends StatelessWidget {
 
     final totalThisWeek = counts.reduce((a, b) => a + b);
     final avg = (totalThisWeek / 7).toStringAsFixed(1);
+    final localeCode = Localizations.localeOf(context).languageCode;
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -189,8 +247,8 @@ class _ActivityCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Task Activity',
-                    style: GoogleFonts.outfit(
+                    context.translate('task_activity'),
+                    style: GoogleFonts.plusJakartaSans(
                       color: AppColors.textDark,
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -199,9 +257,9 @@ class _ActivityCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Avg $avg tasks per day',
-                    style: GoogleFonts.outfit(
-                      color: AppColors.textDark.withOpacity(0.6),
+                    context.translate('avg_tasks_per_day').replaceAll('{avg}', avg),
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppColors.textDark.withValues(alpha: 0.6),
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -215,8 +273,8 @@ class _ActivityCard extends StatelessWidget {
                   color: Colors.black,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.arrow_outward_rounded,
+                child: Icon(
+                  context.isRtl ? Icons.arrow_back_rounded : Icons.arrow_outward_rounded,
                   color: Colors.white,
                   size: 18,
                 ),
@@ -235,8 +293,8 @@ class _ActivityCard extends StatelessWidget {
                   children: yLabels
                       .map((l) => Text(
                             l,
-                            style: GoogleFonts.outfit(
-                              color: AppColors.textDark.withOpacity(0.5),
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppColors.textDark.withValues(alpha: 0.5),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
@@ -251,6 +309,8 @@ class _ActivityCard extends StatelessWidget {
                     children: List.generate(7, (i) {
                       final barH = yMax > 0 ? (counts[i] / yMax) * 85 : 0.0;
                       final isBold = i == highIdx && maxCount > 0;
+                      final dayDate = startOfWeek.add(Duration(days: i));
+                      final weekdayName = DateFormat.E(localeCode).format(dayDate);
                       return Column(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -260,15 +320,15 @@ class _ActivityCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: isBold
                                   ? Colors.black
-                                  : Colors.black.withOpacity(0.15),
+                                  : Colors.black.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            days[i],
-                            style: GoogleFonts.outfit(
-                              color: AppColors.textDark.withOpacity(0.7),
+                            weekdayName,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppColors.textDark.withValues(alpha: 0.7),
                               fontSize: 11,
                               fontWeight: isBold ? FontWeight.w700 : FontWeight.normal,
                             ),
@@ -317,7 +377,7 @@ class _StatCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     value,
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.plusJakartaSans(
                       color: AppColors.textDark,
                       fontSize: 34,
                       fontWeight: FontWeight.w900,
@@ -335,7 +395,7 @@ class _StatCard extends StatelessWidget {
                   ),
                   child: Text(
                     change,
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.plusJakartaSans(
                       color: Colors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -346,8 +406,8 @@ class _StatCard extends StatelessWidget {
             ),
             Text(
               label,
-              style: GoogleFonts.outfit(
-                color: AppColors.textDark.withOpacity(0.6),
+              style: GoogleFonts.plusJakartaSans(
+                color: AppColors.textDark.withValues(alpha: 0.6),
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -380,7 +440,7 @@ class _OverviewCard extends StatelessWidget {
         color: AppColors.cardBg,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.divider.withOpacity(0.5),
+          color: AppColors.divider.withValues(alpha: 0.5),
           width: 1.2,
         ),
       ),
@@ -400,7 +460,7 @@ class _OverviewCard extends StatelessWidget {
                     overdue: displayOverdue,
                     completedColor: AppColors.mint,
                     inProgressColor: AppColors.purple,
-                    overdueColor: Colors.white.withOpacity(0.15),
+                    overdueColor: Colors.white.withValues(alpha: 0.15),
                   ),
                 ),
                 Column(
@@ -408,7 +468,7 @@ class _OverviewCard extends StatelessWidget {
                   children: [
                     Text(
                       '${(displayCompleted * 100).round()}%',
-                      style: GoogleFonts.outfit(
+                      style: GoogleFonts.plusJakartaSans(
                         color: AppColors.textPrimary,
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
@@ -416,12 +476,15 @@ class _OverviewCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'done',
-                      style: GoogleFonts.outfit(
+                      context.translate('completed').toLowerCase(),
+                      style: GoogleFonts.plusJakartaSans(
                         color: AppColors.textSecondary,
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
                       ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -435,19 +498,19 @@ class _OverviewCard extends StatelessWidget {
               children: [
                 _Legend(
                   color: AppColors.mint,
-                  label: 'Completed',
+                  label: context.translate('completed'),
                   pct: '${(displayCompleted * 100).round()}%',
                 ),
                 const SizedBox(height: 12),
                 _Legend(
                   color: AppColors.purple,
-                  label: 'In Progress',
+                  label: context.translate('in_progress'),
                   pct: '${(displayInProgress * 100).round()}%',
                 ),
                 const SizedBox(height: 12),
                 _Legend(
-                  color: Colors.white.withOpacity(0.15),
-                  label: 'Overdue',
+                  color: Colors.white.withValues(alpha: 0.15),
+                  label: context.translate('overdue'),
                   pct: '${(displayOverdue * 100).round()}%',
                 ),
               ],
@@ -483,7 +546,7 @@ class _DonutPainter extends CustomPainter {
     const startAngle = -math.pi / 2;
 
     final trackPaint = Paint()
-      ..color = Colors.white.withOpacity(0.04)
+      ..color = Colors.white.withValues(alpha: 0.04)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeW
       ..strokeCap = StrokeCap.round;
@@ -553,7 +616,7 @@ class _Legend extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.plusJakartaSans(
                 color: AppColors.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -562,7 +625,7 @@ class _Legend extends StatelessWidget {
           ),
           Text(
             pct,
-            style: GoogleFonts.outfit(
+            style: GoogleFonts.plusJakartaSans(
               color: AppColors.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.w800,
@@ -619,16 +682,21 @@ class _ProductivityInsightsCard extends StatelessWidget {
       }
     }
 
-    final daysMap = {
-      1: 'Monday',
-      2: 'Tuesday',
-      3: 'Wednesday',
-      4: 'Thursday',
-      5: 'Friday',
-      6: 'Saturday',
-      7: 'Sunday',
-    };
-    final mostProductiveDay = maxDayVal > 0 ? daysMap[maxDayIdx] : 'None';
+    final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
+    final dayDate = startOfWeek.add(Duration(days: maxDayIdx - 1));
+    final localizedProductiveDay = maxDayVal > 0
+        ? DateFormat.EEEE(Localizations.localeOf(context).languageCode).format(dayDate)
+        : context.translate('no_tasks_completed');
+
+    final streakText = streak == 1
+        ? context.translate('streak_day').replaceAll('{count}', '1')
+        : context.translate('streak_days').replaceAll('{count}', '$streak');
+
+    final streakSubtitle = streak > 0 ? context.translate('keep_it_up') : context.translate('complete_a_task');
+    final consistencySubtitle = consistencyScore > 70 ? context.translate('highly_reliable') : context.translate('room_to_grow');
+    final productiveSubtitle = maxDayVal > 0
+        ? context.translate('tasks_completed_count').replaceAll('{count}', '$maxDayVal')
+        : context.translate('no_tasks_completed');
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -636,7 +704,7 @@ class _ProductivityInsightsCard extends StatelessWidget {
         color: AppColors.cardBg,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.divider.withOpacity(0.5),
+          color: AppColors.divider.withValues(alpha: 0.5),
           width: 1.2,
         ),
       ),
@@ -647,8 +715,8 @@ class _ProductivityInsightsCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Productivity Insights',
-                style: GoogleFonts.outfit(
+                context.translate('productivity_insights'),
+                style: GoogleFonts.plusJakartaSans(
                   color: AppColors.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -656,7 +724,7 @@ class _ProductivityInsightsCard extends StatelessWidget {
               ),
               Icon(
                 Icons.insights_rounded,
-                color: AppColors.textSecondary.withOpacity(0.5),
+                color: AppColors.textSecondary.withValues(alpha: 0.5),
                 size: 20,
               ),
             ],
@@ -666,9 +734,9 @@ class _ProductivityInsightsCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _MetricTile(
-                  label: 'Current Streak',
-                  value: '$streak ${streak == 1 ? "Day" : "Days"}',
-                  subtitle: streak > 0 ? 'Keep it up! 🔥' : 'Complete a task!',
+                  label: context.translate('current_streak'),
+                  value: streakText,
+                  subtitle: streakSubtitle,
                   icon: Icons.local_fire_department_rounded,
                   iconColor: Colors.orangeAccent,
                 ),
@@ -676,9 +744,9 @@ class _ProductivityInsightsCard extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: _MetricTile(
-                  label: 'Consistency',
+                  label: context.translate('consistency'),
                   value: '$consistencyScore%',
-                  subtitle: consistencyScore > 70 ? 'Highly Reliable 🎯' : 'Room to grow 🌱',
+                  subtitle: consistencySubtitle,
                   icon: Icons.ads_click_rounded,
                   iconColor: AppColors.mint,
                 ),
@@ -687,9 +755,9 @@ class _ProductivityInsightsCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           _MetricTile(
-            label: 'Most Productive Day',
-            value: mostProductiveDay!,
-            subtitle: maxDayVal > 0 ? '$maxDayVal tasks completed' : 'No tasks completed yet',
+            label: context.translate('most_productive_day'),
+            value: localizedProductiveDay,
+            subtitle: productiveSubtitle,
             icon: Icons.calendar_today_rounded,
             iconColor: AppColors.purple,
             fullWidth: true,
@@ -724,7 +792,7 @@ class _MetricTile extends StatelessWidget {
         color: AppColors.innerCard,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: AppColors.divider.withOpacity(0.3),
+          color: AppColors.divider.withValues(alpha: 0.3),
           width: 1.0,
         ),
       ),
@@ -734,7 +802,7 @@ class _MetricTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: iconColor, size: 20),
@@ -746,7 +814,7 @@ class _MetricTile extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.plusJakartaSans(
                     color: AppColors.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -755,7 +823,7 @@ class _MetricTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.plusJakartaSans(
                     color: AppColors.textPrimary,
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
@@ -764,8 +832,8 @@ class _MetricTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: GoogleFonts.outfit(
-                    color: AppColors.textSecondary.withOpacity(0.6),
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppColors.textSecondary.withValues(alpha: 0.6),
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                   ),
@@ -808,7 +876,7 @@ class _CategoryBreakdownCard extends StatelessWidget {
           color: AppColors.cardBg,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: AppColors.divider.withOpacity(0.5),
+            color: AppColors.divider.withValues(alpha: 0.5),
             width: 1.2,
           ),
         ),
@@ -816,8 +884,8 @@ class _CategoryBreakdownCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Category Progress',
-              style: GoogleFonts.outfit(
+              context.translate('category_progress'),
+              style: GoogleFonts.plusJakartaSans(
                 color: AppColors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -825,8 +893,8 @@ class _CategoryBreakdownCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No categories found yet. Add categories to your tasks!',
-              style: GoogleFonts.outfit(
+              context.translate('no_categories_yet'),
+              style: GoogleFonts.plusJakartaSans(
                 color: AppColors.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -840,7 +908,6 @@ class _CategoryBreakdownCard extends StatelessWidget {
     final sortedCategories = mapTotal.keys.toList()
       ..sort((a, b) => mapTotal[b]!.compareTo(mapTotal[a]!));
 
-    final colors = [AppColors.mint, AppColors.purple, AppColors.yellow];
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -848,7 +915,7 @@ class _CategoryBreakdownCard extends StatelessWidget {
         color: AppColors.cardBg,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.divider.withOpacity(0.5),
+          color: AppColors.divider.withValues(alpha: 0.5),
           width: 1.2,
         ),
       ),
@@ -859,8 +926,8 @@ class _CategoryBreakdownCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Category Progress',
-                style: GoogleFonts.outfit(
+                context.translate('category_progress'),
+                style: GoogleFonts.plusJakartaSans(
                   color: AppColors.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -868,7 +935,7 @@ class _CategoryBreakdownCard extends StatelessWidget {
               ),
               Icon(
                 Icons.pie_chart_outline_rounded,
-                color: AppColors.textSecondary.withOpacity(0.5),
+                color: AppColors.textSecondary.withValues(alpha: 0.5),
                 size: 20,
               ),
             ],
@@ -880,7 +947,16 @@ class _CategoryBreakdownCard extends StatelessWidget {
             final completed = mapCompleted[cat] ?? 0;
             final ratio = total == 0 ? 0.0 : completed / total;
             final percent = (ratio * 100).round();
-            final color = colors[idx % colors.length];
+            final color = AppColors.getCategoryColor(cat);
+
+            final categoryLabel = ['Work', 'Personal', 'Health', 'Study', 'Family', 'Shopping', 'General'].contains(cat)
+                ? context.translate('cat_${cat.toLowerCase()}')
+                : cat;
+
+            final completedRatioText = context.translate('completed_ratio')
+                .replaceAll('{completed}', '$completed')
+                .replaceAll('{total}', '$total')
+                .replaceAll('{percent}', '$percent');
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
@@ -891,16 +967,16 @@ class _CategoryBreakdownCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        cat,
-                        style: GoogleFonts.outfit(
+                        categoryLabel,
+                        style: GoogleFonts.plusJakartaSans(
                           color: AppColors.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       Text(
-                        '$completed/$total completed ($percent%)',
-                        style: GoogleFonts.outfit(
+                        completedRatioText,
+                        style: GoogleFonts.plusJakartaSans(
                           color: AppColors.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -914,7 +990,7 @@ class _CategoryBreakdownCard extends StatelessWidget {
                       Container(
                         height: 6,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
+                          color: Colors.white.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),
@@ -950,6 +1026,7 @@ class _ProcessHistoryCard extends StatelessWidget {
       ..sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
 
     final displayTasks = recent.take(5).toList();
+    final localeCode = Localizations.localeOf(context).languageCode;
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -957,7 +1034,7 @@ class _ProcessHistoryCard extends StatelessWidget {
         color: AppColors.cardBg,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.divider.withOpacity(0.5),
+          color: AppColors.divider.withValues(alpha: 0.5),
           width: 1.2,
         ),
       ),
@@ -968,8 +1045,8 @@ class _ProcessHistoryCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Process History',
-                style: GoogleFonts.outfit(
+                context.translate('process_history'),
+                style: GoogleFonts.plusJakartaSans(
                   color: AppColors.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -977,7 +1054,7 @@ class _ProcessHistoryCard extends StatelessWidget {
               ),
               Icon(
                 Icons.history_rounded,
-                color: AppColors.textSecondary.withOpacity(0.5),
+                color: AppColors.textSecondary.withValues(alpha: 0.5),
                 size: 20,
               ),
             ],
@@ -985,8 +1062,8 @@ class _ProcessHistoryCard extends StatelessWidget {
           const SizedBox(height: 20),
           if (displayTasks.isEmpty)
             Text(
-              'No completed tasks yet. Finish a task to start your history!',
-              style: GoogleFonts.outfit(
+              context.translate('no_completed_history'),
+              style: GoogleFonts.plusJakartaSans(
                 color: AppColors.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -1000,8 +1077,7 @@ class _ProcessHistoryCard extends StatelessWidget {
               itemBuilder: (context, idx) {
                 final task = displayTasks[idx];
                 final isLast = idx == displayTasks.length - 1;
-                final formattedDate =
-                    "${task.scheduledAt.day} ${_getMonthName(task.scheduledAt.month)}";
+                final formattedDate = DateFormat('d MMM', localeCode).format(task.scheduledAt);
 
                 return IntrinsicHeight(
                   child: Row(
@@ -1013,7 +1089,7 @@ class _ProcessHistoryCard extends StatelessWidget {
                             width: 24,
                             height: 24,
                             decoration: BoxDecoration(
-                              color: AppColors.mint.withOpacity(0.15),
+                              color: AppColors.mint.withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -1026,7 +1102,7 @@ class _ProcessHistoryCard extends StatelessWidget {
                             Expanded(
                               child: Container(
                                 width: 2,
-                                color: AppColors.divider.withOpacity(0.4),
+                                color: AppColors.divider.withValues(alpha: 0.4),
                               ),
                             ),
                         ],
@@ -1040,7 +1116,7 @@ class _ProcessHistoryCard extends StatelessWidget {
                             children: [
                               Text(
                                 task.title,
-                                style: GoogleFonts.outfit(
+                                style: GoogleFonts.plusJakartaSans(
                                   color: AppColors.textPrimary,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
@@ -1051,7 +1127,7 @@ class _ProcessHistoryCard extends StatelessWidget {
                                 children: [
                                   Text(
                                     formattedDate,
-                                    style: GoogleFonts.outfit(
+                                    style: GoogleFonts.plusJakartaSans(
                                       color: AppColors.textSecondary,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
@@ -1071,26 +1147,29 @@ class _ProcessHistoryCard extends StatelessWidget {
                                     Wrap(
                                       spacing: 4,
                                       children: task.categories
-                                          .map((c) => Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 2,
+                                          .map((c) {
+                                            final categoryLabel = ['Work', 'Personal', 'Health', 'Study', 'Family', 'Shopping', 'General'].contains(c)
+                                                ? context.translate('cat_${c.toLowerCase()}')
+                                                : c;
+                                            return Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.innerCard,
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                categoryLabel,
+                                                style: GoogleFonts.plusJakartaSans(
+                                                  color: AppColors.textPrimary,
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
                                                 ),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.innerCard,
-                                                  borderRadius:
-                                                      BorderRadius.circular(6),
-                                                ),
-                                                child: Text(
-                                                  c,
-                                                  style: GoogleFonts.outfit(
-                                                    color: AppColors.textPrimary,
-                                                    fontSize: 9,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ))
+                                              ),
+                                            );
+                                          })
                                           .toList(),
                                     ),
                                   ],
@@ -1109,25 +1188,5 @@ class _ProcessHistoryCard extends StatelessWidget {
       ),
     );
   }
-
-  String _getMonthName(int month) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
-    ];
-    if (month >= 1 && month <= 12) {
-      return months[month - 1];
-    }
-    return '';
-  }
 }
+

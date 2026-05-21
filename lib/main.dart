@@ -1,16 +1,21 @@
-﻿// lib/main.dart
+// lib/main.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:go_router/go_router.dart';
-
 
 import 'core/router/app_router.dart';
 import 'core/constants/app_colors.dart';
 import 'core/database/database_service.dart';
 import 'services/notification_service.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+// Localization
+import 'core/localization/app_localizations.dart';
+import 'core/localization/locale_provider.dart';
+import 'core/localization/l10n.dart';
 
 // Providers and Services
 import 'features/auth/data/datasources/supabase_auth_datasource.dart';
@@ -74,8 +79,15 @@ void main() async {
             return previous;
           },
         ),
-        ChangeNotifierProvider<CurrentTaskNotifier>(
-          create: (_) => CurrentTaskNotifier(),
+        ChangeNotifierProxyProvider<TasksNotifier, CurrentTaskNotifier>(
+          create: (context) => CurrentTaskNotifier(),
+          update: (context, tasksNotifier, previous) {
+            previous!.updateTasks(tasksNotifier.tasks);
+            return previous;
+          },
+        ),
+        ChangeNotifierProvider<LocaleProvider>(
+          create: (_) => LocaleProvider(),
         ),
       ],
       child: const QuickTaskApp(),
@@ -101,9 +113,19 @@ class _QuickTaskAppState extends State<QuickTaskApp> {
 
   @override
   Widget build(BuildContext context) {
+    final localeProvider = context.watch<LocaleProvider>();
+
     return MaterialApp.router(
       title: 'QuickTask',
       debugShowCheckedModeBanner: false,
+      locale: localeProvider.locale,
+      supportedLocales: L10n.all,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: AppColors.background,
         colorScheme: const ColorScheme.dark(
@@ -119,8 +141,24 @@ class _QuickTaskAppState extends State<QuickTaskApp> {
         ),
         cardColor: AppColors.cardBg,
         dividerColor: AppColors.divider,
-        textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme).copyWith(
-          bodyMedium: const TextStyle(color: AppColors.textPrimary),
+        textTheme: GoogleFonts.plusJakartaSansTextTheme(
+          ThemeData.dark().textTheme.copyWith(
+            displayLarge: const TextStyle(fontWeight: FontWeight.w200),
+            displayMedium: const TextStyle(fontWeight: FontWeight.w200),
+            displaySmall: const TextStyle(fontWeight: FontWeight.w200),
+            headlineLarge: const TextStyle(fontWeight: FontWeight.w200),
+            headlineMedium: const TextStyle(fontWeight: FontWeight.w200),
+            headlineSmall: const TextStyle(fontWeight: FontWeight.w200),
+            titleLarge: const TextStyle(fontWeight: FontWeight.w300),
+            titleMedium: const TextStyle(fontWeight: FontWeight.w300),
+            titleSmall: const TextStyle(fontWeight: FontWeight.w300),
+            bodyLarge: const TextStyle(fontWeight: FontWeight.w200),
+            bodyMedium: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w200),
+            bodySmall: const TextStyle(fontWeight: FontWeight.w200),
+            labelLarge: const TextStyle(fontWeight: FontWeight.w300),
+            labelMedium: const TextStyle(fontWeight: FontWeight.w300),
+            labelSmall: const TextStyle(fontWeight: FontWeight.w300),
+          ),
         ),
         progressIndicatorTheme: const ProgressIndicatorThemeData(
           color: AppColors.accent,

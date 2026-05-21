@@ -44,15 +44,37 @@ class CurrentTaskNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Refresh the internal task reference (after edits)
-  void refreshTask(List<TaskModelHive> allTasks) {
+  /// Update list of all tasks from TasksNotifier and sync state
+  void updateTasks(List<TaskModelHive> allTasks) {
     if (_currentTaskId == null) return;
     try {
-      _currentTask = allTasks.firstWhere((t) => t.id == _currentTaskId);
+      final task = allTasks.firstWhere((t) => t.id == _currentTaskId);
+      if (task.isCompleted) {
+        _currentTask = null;
+        _currentTaskId = null;
+        DatabaseService.setCurrentTaskId(null);
+        notifyListeners();
+      } else {
+        if (_currentTask?.id != task.id || _currentTask?.isCompleted != task.isCompleted || _currentTask?.title != task.title || _currentTask?.categories != task.categories) {
+          _currentTask = task;
+          notifyListeners();
+        }
+      }
     } catch (_) {
-      _currentTask = null;
-      _currentTaskId = null;
+      // ONLY clear the current task if the tasks list is actually NOT empty.
+      // This prevents wiping out the current task if the database is temporarily empty or loading.
+      if (allTasks.isNotEmpty) {
+        _currentTask = null;
+        _currentTaskId = null;
+        DatabaseService.setCurrentTaskId(null);
+        notifyListeners();
+      }
     }
+  }
+
+  /// Refresh the internal task reference (deprecated, replaced by updateTasks)
+  void refreshTask(List<TaskModelHive> allTasks) {
+    // Left empty for compatibility, handled automatically by updateTasks
   }
 
   /// Clear current task selection

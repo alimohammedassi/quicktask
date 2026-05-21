@@ -11,6 +11,7 @@
 //  8. Feature pills use consistent Icons with semantic labels
 //  9. Loading state disables sign-in button with clear visual feedback
 // 10. Error snackbar accessible via assertiveness
+// 11. Fully localized (AR, EN, DE, FR) with dynamic language switcher
 
 import 'dart:math' as math;
 import 'dart:ui';
@@ -20,6 +21,9 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/google_sign_in_button.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/localization/locale_provider.dart';
+import '../../../../core/localization/l10n.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _kBg = Color(0xFF080A12);
@@ -163,6 +167,16 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               ),
             ),
+
+            // Floating dynamic RTL Language Switcher
+            Positioned(
+              top: 16,
+              right: context.isRtl ? null : 16,
+              left: context.isRtl ? 16 : null,
+              child: const SafeArea(
+                child: _LanguageSwitcher(),
+              ),
+            ),
           ],
         ),
       ),
@@ -182,9 +196,9 @@ class _LoginScreenState extends State<LoginScreen>
             end: Alignment.bottomRight,
             stops: [0.0, 0.5, 1.0],
           ).createShader(bounds),
-          child: const Text(
-            'QuikTask ',
-            style: TextStyle(
+          child: Text(
+            context.translate('quiktask'),
+            style: const TextStyle(
               fontSize: 42,
               fontWeight: FontWeight.w800,
               color: Colors.white,
@@ -196,9 +210,9 @@ class _LoginScreenState extends State<LoginScreen>
         const SizedBox(height: 12),
 
         // Tagline — no dots, no emoji, real copy
-        const Text(
-          'Speak a task. It handles the rest.',
-          style: TextStyle(
+        Text(
+          context.translate('app_tagline'),
+          style: const TextStyle(
             fontSize: 15,
             color: _kTextSecond,
             fontWeight: FontWeight.w400,
@@ -251,7 +265,7 @@ class _LoginScreenState extends State<LoginScreen>
               const SizedBox(height: 24),
 
               // ── What you get — 3 value props ────────────────────────────
-              _ValueProps(),
+              const _ValueProps(),
 
               const SizedBox(height: 28),
 
@@ -263,7 +277,7 @@ class _LoginScreenState extends State<LoginScreen>
               // ── Sign-in button ────────────────────────────────────────────
               Semantics(
                 button: true,
-                label: 'Sign in with Google',
+                label: context.translate('sign_in_google'),
                 enabled: !isLoading,
                 child: ScaleTransition(
                   scale: _btnScale,
@@ -288,15 +302,15 @@ class _LoginScreenState extends State<LoginScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.lock_outline_rounded,
                     size: 12,
                     color: _kTextHint,
                   ),
                   const SizedBox(width: 6),
-                  const Text(
-                    'Your data is private and never sold.',
-                    style: TextStyle(
+                  Text(
+                    context.translate('privacy_note'),
+                    style: const TextStyle(
                       fontSize: 12,
                       color: _kTextHint,
                       fontWeight: FontWeight.w400,
@@ -322,13 +336,13 @@ class _LoginScreenState extends State<LoginScreen>
           children: [
             _TrustBadge(
               icon: Icons.calendar_month_outlined,
-              label: 'Google Calendar',
+              label: context.translate('google_calendar'),
             ),
             const SizedBox(width: 6),
             Container(
               width: 3,
               height: 3,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: _kTextHint,
                 shape: BoxShape.circle,
               ),
@@ -336,13 +350,13 @@ class _LoginScreenState extends State<LoginScreen>
             const SizedBox(width: 6),
             _TrustBadge(
               icon: Icons.notifications_none_rounded,
-              label: 'Smart reminders',
+              label: context.translate('smart_reminders'),
             ),
             const SizedBox(width: 6),
             Container(
               width: 3,
               height: 3,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: _kTextHint,
                 shape: BoxShape.circle,
               ),
@@ -350,7 +364,7 @@ class _LoginScreenState extends State<LoginScreen>
             const SizedBox(width: 6),
             _TrustBadge(
               icon: Icons.translate_rounded,
-              label: 'Arabic + English',
+              label: context.translate('multi_language'),
             ),
           ],
         ),
@@ -361,7 +375,7 @@ class _LoginScreenState extends State<LoginScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _FooterLink(label: 'Privacy Policy'),
+            _FooterLink(label: context.translate('privacy_policy')),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Container(
@@ -373,7 +387,7 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               ),
             ),
-            _FooterLink(label: 'Terms of Service'),
+            _FooterLink(label: context.translate('terms_of_service')),
           ],
         ),
       ],
@@ -422,13 +436,102 @@ class _LoginScreenState extends State<LoginScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Language Switcher — elegant glassmorphic Globe button
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LanguageSwitcher extends StatelessWidget {
+  const _LanguageSwitcher();
+
+  @override
+  Widget build(BuildContext context) {
+    final localeProvider = context.watch<LocaleProvider>();
+    final activeLocale = localeProvider.locale;
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        cardColor: _kCard,
+      ),
+      child: PopupMenuButton<Locale>(
+        icon: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: _kCard.withValues(alpha: 0.8),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _kBorder.withValues(alpha: 0.8),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: const Icon(
+            Icons.language_rounded,
+            color: _kAccent,
+            size: 20,
+          ),
+        ),
+        tooltip: context.translate('language_switcher_title'),
+        offset: const Offset(0, 50),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: _kBorder, width: 1.5),
+        ),
+        onSelected: (Locale locale) {
+          HapticFeedback.mediumImpact();
+          localeProvider.setLocale(locale);
+        },
+        itemBuilder: (BuildContext context) {
+          return L10n.all.map((locale) {
+            final isSelected = locale.languageCode == activeLocale.languageCode;
+            return PopupMenuItem<Locale>(
+              value: locale,
+              child: Row(
+                children: [
+                  Text(
+                    L10n.getFlag(locale.languageCode),
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      L10n.getLanguageName(locale.languageCode),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected ? _kAccent : _kTextPrime,
+                      ),
+                    ),
+                  ),
+                  if (isSelected)
+                    const Icon(
+                      Icons.check_rounded,
+                      color: _kAccent,
+                      size: 16,
+                    ),
+                ],
+              ),
+            );
+          }).toList();
+        },
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Card header — time-aware, no emoji
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CardHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final (greeting, sub) = _copy();
+    final (greeting, sub) = _copy(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -482,9 +585,9 @@ class _CardHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 5),
-              const Text(
-                'Secure',
-                style: TextStyle(
+              Text(
+                context.translate('secure'),
+                style: const TextStyle(
                   color: _kAccent,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -498,23 +601,36 @@ class _CardHeader extends StatelessWidget {
     );
   }
 
-  (String, String) _copy() {
+  (String, String) _copy(BuildContext context) {
     final h = DateTime.now().hour;
-    if (h < 5)
+    if (h < 5) {
       return (
-        'Still up?',
-        'Sign in and get those late-night tasks out of your head.'
+        context.translate('greeting_still_up'),
+        context.translate('greeting_still_up_sub'),
       );
-    if (h < 12)
+    }
+    if (h < 12) {
       return (
-        'Good morning.',
-        'A clear morning starts with a clear task list.'
+        context.translate('greeting_morning'),
+        context.translate('greeting_morning_sub'),
       );
-    if (h < 17)
-      return ('Good afternoon.', 'Sign in to pick up where you left off.');
-    if (h < 21)
-      return ('Good evening.', 'Wind down with a clear view of what\'s done.');
-    return ('Good night.', 'Capture anything on your mind before you rest.');
+    }
+    if (h < 17) {
+      return (
+        context.translate('greeting_afternoon'),
+        context.translate('greeting_afternoon_sub'),
+      );
+    }
+    if (h < 21) {
+      return (
+        context.translate('greeting_evening'),
+        context.translate('greeting_evening_sub'),
+      );
+    }
+    return (
+      context.translate('greeting_night'),
+      context.translate('greeting_night_sub'),
+    );
   }
 }
 
@@ -528,26 +644,26 @@ class _ValueProps extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: const [
+      children: [
         _ValuePropRow(
           icon: Icons.mic_none_rounded,
           color: _kPrimary,
-          title: 'Speak in Arabic or English',
-          subtitle: 'AI parses date, time, and title automatically.',
+          title: context.translate('speak_voice'),
+          subtitle: context.translate('speak_voice_sub'),
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         _ValuePropRow(
           icon: Icons.calendar_month_outlined,
           color: _kAccent,
-          title: 'Syncs to Google Calendar',
-          subtitle: 'Every task becomes a calendar event, instantly.',
+          title: context.translate('sync_gcal_title'),
+          subtitle: context.translate('sync_gcal_sub'),
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         _ValuePropRow(
           icon: Icons.notifications_none_rounded,
           color: _kGold,
-          title: 'Reminds you 15 min before',
-          subtitle: 'Local notifications that actually show up.',
+          title: context.translate('smart_reminders_title'),
+          subtitle: context.translate('smart_reminders_sub'),
         ),
       ],
     );
@@ -823,7 +939,7 @@ class _WavePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // We want thick, white, bold S-curves like the reference
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.07)
+      ..color = Colors.white.withValues(alpha: 0.07)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 45 // Much thicker
       ..strokeCap = StrokeCap.round;
@@ -856,7 +972,7 @@ class _WavePainter extends CustomPainter {
     
     // Bottom-right bundle
     final paint2 = Paint()
-      ..color = Colors.white.withOpacity(0.04)
+      ..color = Colors.white.withValues(alpha: 0.04)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 35
       ..strokeCap = StrokeCap.round;

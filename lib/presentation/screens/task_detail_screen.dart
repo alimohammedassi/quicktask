@@ -1,4 +1,4 @@
-﻿// lib/presentation/screens/task_detail_screen.dart
+// lib/presentation/screens/task_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,6 +8,26 @@ import '../../core/constants/app_colors.dart';
 import '../../core/database/task_model_hive.dart';
 import '../providers/task_provider.dart';
 import '../providers/current_task_provider.dart';
+import '../../core/localization/app_localizations.dart';
+
+String _translateCategory(BuildContext context, String label) {
+  switch (label.toLowerCase()) {
+    case 'work':
+      return context.translate('cat_work');
+    case 'personal':
+      return context.translate('cat_personal');
+    case 'health':
+      return context.translate('cat_health');
+    case 'study':
+      return context.translate('cat_study');
+    case 'family':
+      return context.translate('cat_family');
+    case 'shopping':
+      return context.translate('cat_shopping');
+    default:
+      return label;
+  }
+}
 
 class TaskDetailScreen extends StatefulWidget {
   const TaskDetailScreen({super.key, required this.task});
@@ -17,12 +37,20 @@ class TaskDetailScreen extends StatefulWidget {
   State<TaskDetailScreen> createState() => _TaskDetailScreenState();
 }
 
-class _TaskDetailScreenState extends State<TaskDetailScreen> {
+class _TaskDetailScreenState extends State<TaskDetailScreen>
+    with TickerProviderStateMixin {
   late TextEditingController _titleCtrl;
   late TextEditingController _descCtrl;
   late DateTime _dueDate;
   late bool _isCompleted;
+  late List<String> _selectedCats;
   bool _hasChanges = false;
+
+  // ── Staggered entrance animations ──────────────────────────
+  late final AnimationController _entranceCtrl;
+  late final List<Animation<double>> _fadeAnims;
+  late final List<Animation<Offset>> _slideAnims;
+  static const _sectionCount = 7;
 
   @override
   void initState() {
@@ -31,12 +59,42 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _descCtrl = TextEditingController(text: widget.task.description ?? '');
     _dueDate = widget.task.scheduledAt;
     _isCompleted = widget.task.isCompleted;
+    _selectedCats = List.from(widget.task.categories);
+
+    _entranceCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnims = List.generate(_sectionCount, (i) {
+      final start = (i * 0.08).clamp(0.0, 0.7);
+      final end = (start + 0.35).clamp(0.0, 1.0);
+      return CurvedAnimation(
+        parent: _entranceCtrl,
+        curve: Interval(start, end, curve: Curves.easeOut),
+      );
+    });
+
+    _slideAnims = List.generate(_sectionCount, (i) {
+      final start = (i * 0.08).clamp(0.0, 0.7);
+      final end = (start + 0.35).clamp(0.0, 1.0);
+      return Tween<Offset>(
+        begin: const Offset(0, 0.12),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _entranceCtrl,
+        curve: Interval(start, end, curve: Curves.easeOutCubic),
+      ));
+    });
+
+    _entranceCtrl.forward();
   }
 
   @override
   void dispose() {
     _titleCtrl.dispose();
     _descCtrl.dispose();
+    _entranceCtrl.dispose();
     super.dispose();
   }
 
@@ -46,21 +104,31 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   Future<void> _saveChanges() async {
     final notifier = context.read<TasksNotifier>();
+    final currentTask = context.read<CurrentTaskNotifier>();
     final updated = widget.task.copyWith(
       title: _titleCtrl.text.trim(),
       description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
       scheduledAt: _dueDate,
       isCompleted: _isCompleted,
+      categories: _selectedCats,
     );
     await notifier.updateTask(updated);
+    
+    // Clear if it's the current task and has been completed
+    if (_isCompleted) {
+      if (currentTask.currentTaskId == widget.task.id) {
+        await currentTask.clearCurrentTask();
+      }
+    }
+
     HapticFeedback.mediumImpact();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Row(children: [
           const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
           const SizedBox(width: 10),
-          Text('Changes saved',
-              style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+          Text(context.translate('changes_saved_toast'),
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
         ]),
         backgroundColor: AppColors.mint.withValues(alpha: 0.9),
         behavior: SnackBarBehavior.floating,
@@ -78,27 +146,32 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.cardBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Delete Task?',
-            style: GoogleFonts.outfit(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
-        content: Text('This action cannot be undone.',
-            style: GoogleFonts.outfit(color: AppColors.textSecondary)),
+        title: Text(ctx.translate('delete_task_confirm'),
+            style: GoogleFonts.plusJakartaSans(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+        content: Text(ctx.translate('delete_task_warning'),
+            style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel',
-                style: GoogleFonts.outfit(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+            child: Text(ctx.translate('cancel_btn'),
+                style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Delete',
-                style: GoogleFonts.outfit(color: AppColors.error, fontWeight: FontWeight.w700)),
+            child: Text(ctx.translate('delete'),
+                style: GoogleFonts.plusJakartaSans(color: AppColors.error, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
     );
     if (confirmed == true && mounted) {
       HapticFeedback.heavyImpact();
-      await context.read<TasksNotifier>().deleteTask(widget.task);
+      final currentTask = context.read<CurrentTaskNotifier>();
+      final tasksNotifier = context.read<TasksNotifier>();
+      if (currentTask.currentTaskId == widget.task.id) {
+        await currentTask.clearCurrentTask();
+      }
+      await tasksNotifier.deleteTask(widget.task);
       if (mounted) Navigator.pop(context);
     }
   }
@@ -154,9 +227,27 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _markChanged();
   }
 
+  // ── Helper: wrap a section in staggered fade + slide ──────────
+  Widget _animSection(int index, Widget child) {
+    return FadeTransition(
+      opacity: _fadeAnims[index],
+      child: SlideTransition(
+        position: _slideAnims[index],
+        child: child,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final progress = _isCompleted ? 1.0 : 0.48;
+    final currentTaskNotifier = Provider.of<CurrentTaskNotifier>(context);
+    final subtasks = currentTaskNotifier.subtasksForTask(widget.task.id);
+    final completedCount = subtasks.where((s) => s.isCompleted).length;
+    final totalCount = subtasks.length;
+    final double progress = subtasks.isEmpty
+        ? (_isCompleted ? 1.0 : 0.0)
+        : (completedCount / totalCount);
+
     return PopScope(
       canPop: !_hasChanges,
       onPopInvokedWithResult: (didPop, _) async {
@@ -166,50 +257,54 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           builder: (ctx) => AlertDialog(
             backgroundColor: AppColors.cardBg,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Text('Unsaved Changes',
-                style: GoogleFonts.outfit(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
-            content: Text('Save your changes before leaving?',
-                style: GoogleFonts.outfit(color: AppColors.textSecondary)),
+            title: Text(ctx.translate('unsaved_changes'),
+                style: GoogleFonts.plusJakartaSans(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+            content: Text(ctx.translate('unsaved_changes_warning'),
+                style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: Text('Discard',
-                    style: GoogleFonts.outfit(color: AppColors.error, fontWeight: FontWeight.w600)),
+                child: Text(ctx.translate('discard'),
+                    style: GoogleFonts.plusJakartaSans(color: AppColors.error, fontWeight: FontWeight.w600)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: Text('Save',
-                    style: GoogleFonts.outfit(color: AppColors.mint, fontWeight: FontWeight.w700)),
+                child: Text(ctx.translate('save'),
+                    style: GoogleFonts.plusJakartaSans(color: AppColors.mint, fontWeight: FontWeight.w700)),
               ),
             ],
           ),
         );
         if (save == true) await _saveChanges();
-        if (mounted) Navigator.pop(context);
+        if (!context.mounted) return;
+        Navigator.pop(context);
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
+          bottom: false,
           child: Column(
             children: [
               _buildAppBar(),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(context).padding.bottom + 40),
+                  physics: const BouncingScrollPhysics(),
                   children: [
                     const SizedBox(height: 20),
-                    _buildTitle(),
+                    _animSection(0, _buildTitle()),
                     const SizedBox(height: 20),
-                    _buildAssignDueRow(),
+                    _animSection(1, _buildAssignDueRow()),
                     const SizedBox(height: 16),
-                    _buildStatusCard(progress),
+                    _animSection(2, _buildStatusCard(progress)),
                     const SizedBox(height: 16),
-                    _buildDescriptionCard(),
+                    _animSection(3, _buildCategoryCard()),
                     const SizedBox(height: 16),
+                    _animSection(4, _buildDescriptionCard()),
                     const SizedBox(height: 16),
-                    _buildChecklistCard(),
+                    _animSection(5, _buildChecklistCard()),
                     const SizedBox(height: 24),
-                    _buildDeleteButton(),
+                    _animSection(6, _buildDeleteButton()),
                   ],
                 ),
               ),
@@ -230,16 +325,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             GestureDetector(
               onTap: () {
                 if (_hasChanges) {
-                  // trigger WillPopScope
                   Navigator.maybePop(context);
                 } else {
                   Navigator.pop(context);
                 }
               },
-              child: _iconBtn(Icons.arrow_back_ios_new_rounded),
+              child: _iconBtn(Icons.arrow_back_rounded),
             ),
-            Text('Task Details',
-                style: GoogleFonts.outfit(
+            Text(context.translate('task_details'),
+                style: GoogleFonts.plusJakartaSans(
                     color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
             PopupMenuButton<String>(
               icon: _iconBtn(Icons.more_horiz_rounded),
@@ -255,7 +349,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     content: Row(children: [
                       const Icon(Icons.star_rounded, color: AppColors.textDark, size: 18),
                       const SizedBox(width: 10),
-                      Text('Pinned to Home screen', style: GoogleFonts.outfit(color: AppColors.textDark, fontWeight: FontWeight.w600)),
+                      Text(context.translate('pinned_to_home'), style: GoogleFonts.plusJakartaSans(color: AppColors.textDark, fontWeight: FontWeight.w600)),
                     ]),
                     backgroundColor: AppColors.mint,
                     behavior: SnackBarBehavior.floating,
@@ -270,8 +364,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   child: Row(children: [
                     const Icon(Icons.star_outline_rounded, color: AppColors.gold, size: 18),
                     const SizedBox(width: 10),
-                    Text('Set as Current',
-                        style: GoogleFonts.outfit(color: AppColors.textPrimary, fontSize: 14)),
+                    Text(context.translate('set_as_current'),
+                        style: GoogleFonts.plusJakartaSans(color: AppColors.textPrimary, fontSize: 14)),
                   ]),
                 ),
                 PopupMenuItem(
@@ -280,8 +374,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     Icon(_isCompleted ? Icons.undo_rounded : Icons.check_circle_rounded,
                         color: AppColors.mint, size: 18),
                     const SizedBox(width: 10),
-                    Text(_isCompleted ? 'Mark Pending' : 'Mark Done',
-                        style: GoogleFonts.outfit(color: AppColors.textPrimary, fontSize: 14)),
+                    Text(_isCompleted ? context.translate('mark_pending') : context.translate('mark_done'),
+                        style: GoogleFonts.plusJakartaSans(color: AppColors.textPrimary, fontSize: 14)),
                   ]),
                 ),
                 PopupMenuItem(
@@ -289,8 +383,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   child: Row(children: [
                     const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
                     const SizedBox(width: 10),
-                    Text('Delete Task',
-                        style: GoogleFonts.outfit(color: AppColors.error, fontSize: 14)),
+                    Text(context.translate('delete_task'),
+                        style: GoogleFonts.plusJakartaSans(color: AppColors.error, fontSize: 14)),
                   ]),
                 ),
               ],
@@ -300,11 +394,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       );
 
   Widget _iconBtn(IconData icon) => Container(
-        width: 42,
-        height: 42,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
           color: AppColors.cardBg,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.divider, width: 1.2),
         ),
         child: Icon(icon, color: AppColors.textPrimary, size: 18),
       );
@@ -320,20 +415,20 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 TextField(
                   controller: _titleCtrl,
                   onChanged: (_) => _markChanged(),
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.plusJakartaSans(
                       color: AppColors.textPrimary, fontSize: 28, fontWeight: FontWeight.w700),
                   decoration: InputDecoration(
                     border: InputBorder.none,
-                    hintText: 'Task title',
-                    hintStyle: GoogleFonts.outfit(color: AppColors.textHint, fontSize: 28),
+                    hintText: context.translate('task_title_label'),
+                    hintStyle: GoogleFonts.plusJakartaSans(color: AppColors.textHint, fontSize: 28),
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
                   maxLines: 2,
                 ),
                 const SizedBox(height: 4),
-                Text('Task manager ui kit',
-                    style: GoogleFonts.outfit(color: AppColors.textSecondary, fontSize: 13)),
+                Text(context.translate('task_manager_ui_kit'),
+                    style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontSize: 13)),
               ],
             ),
           ),
@@ -349,30 +444,33 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         children: [
           Expanded(
             child: Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.cardBg,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.divider, width: 1.2),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Client Name',
-                      style: GoogleFonts.outfit(color: AppColors.textSecondary, fontSize: 11)),
-                  const SizedBox(height: 6),
+                  Text(context.translate('client_name'),
+                      style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       CircleAvatar(
-                        radius: 16,
+                        radius: 14,
                         backgroundColor: AppColors.purple,
                         child: Text('C',
-                            style: GoogleFonts.outfit(
-                                color: AppColors.textDark, fontWeight: FontWeight.w700, fontSize: 12)),
+                            style: GoogleFonts.plusJakartaSans(
+                                color: AppColors.textDark, fontWeight: FontWeight.w800, fontSize: 11)),
                       ),
                       const SizedBox(width: 8),
-                      Text('Client',
-                          style: GoogleFonts.outfit(
-                              color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
+                      Expanded(
+                        child: Text(context.translate('client'),
+                            style: GoogleFonts.plusJakartaSans(
+                                color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
+                      ),
                     ],
                   ),
                 ],
@@ -384,10 +482,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             child: GestureDetector(
               onTap: _pickDate,
               child: Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: AppColors.cardBg,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.divider, width: 1.2),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,16 +494,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     Row(
                       children: [
                         const Icon(Icons.calendar_today_outlined, size: 12, color: AppColors.mint),
-                        const SizedBox(width: 4),
-                        Text('Due date',
-                            style: GoogleFonts.outfit(color: AppColors.textSecondary, fontSize: 11)),
+                        const SizedBox(width: 6),
+                        Text(context.translate('due_date'),
+                            style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
                         const Spacer(),
                         const Icon(Icons.edit_outlined, size: 12, color: AppColors.textHint),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(DateFormat('MMM d, h:mm a').format(_dueDate),
-                        style: GoogleFonts.outfit(
+                    const SizedBox(height: 8),
+                    Text(DateFormat('MMM d, h:mm a', Localizations.localeOf(context).languageCode).format(_dueDate),
+                        style: GoogleFonts.plusJakartaSans(
                             color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
                   ],
                 ),
@@ -416,58 +515,59 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   // ── STATUS (tappable toggle) ───────────────────────────────
   Widget _buildStatusCard(double progress) => Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: AppColors.cardBg,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.divider, width: 1.2),
         ),
         child: Column(
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Task Status',
-                    style: GoogleFonts.outfit(
+                Text(context.translate('task_status'),
+                    style: GoogleFonts.plusJakartaSans(
                         color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700)),
                 GestureDetector(
                   onTap: _toggleComplete,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: _isCompleted ? AppColors.mint : AppColors.yellow,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      _isCompleted ? 'COMPLETED' : 'IN PROGRESS',
-                      style: GoogleFonts.outfit(
-                          color: AppColors.textDark, fontSize: 10, fontWeight: FontWeight.w700),
+                      _isCompleted ? context.translate('completed').toUpperCase() : context.translate('in_progress'),
+                      style: GoogleFonts.plusJakartaSans(
+                          color: AppColors.textDark, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.3),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Progress',
-                    style: GoogleFonts.outfit(color: AppColors.textSecondary, fontSize: 12)),
+                Text(context.translate('progress'),
+                    style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
                 Text('${(_isCompleted ? 100 : (progress * 100).round())}%',
-                    style: GoogleFonts.outfit(
-                        color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w700)),
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w800)),
               ],
             ),
             const SizedBox(height: 8),
             ClipRRect(
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(4),
               child: TweenAnimationBuilder<double>(
                 tween: Tween(end: _isCompleted ? 1.0 : progress),
                 duration: const Duration(milliseconds: 500),
                 curve: Curves.easeOutCubic,
                 builder: (_, val, __) => LinearProgressIndicator(
                   value: val,
-                  minHeight: 6,
+                  minHeight: 8,
                   backgroundColor: AppColors.innerCard,
                   valueColor: AlwaysStoppedAnimation<Color>(
                     _isCompleted ? AppColors.mint : AppColors.yellow,
@@ -479,29 +579,105 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
       );
 
+  // ── CATEGORY SELECTOR CARD ────────────────────────────────
+  Widget _buildCategoryCard() {
+    final availableCategories = ['Work', 'Personal', 'Health', 'Study', 'Family', 'Shopping'];
+    
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.divider, width: 1.2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(context.translate('categories'),
+              style: GoogleFonts.plusJakartaSans(
+                  color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: availableCategories.map((cat) {
+              final isSelected = _selectedCats.contains(cat);
+              final catColor = AppColors.getCategoryColor(cat);
+              
+              return GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    if (isSelected) {
+                      _selectedCats.remove(cat);
+                    } else {
+                      _selectedCats.add(cat);
+                    }
+                    _markChanged();
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? catColor : AppColors.innerCard,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? catColor : AppColors.divider,
+                      width: 1.2,
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: catColor.withValues(alpha: 0.2),
+                              blurRadius: 8,
+                              spreadRadius: -2,
+                            )
+                          ]
+                        : null,
+                  ),
+                  child: Text(
+                    _translateCategory(context, cat).toUpperCase(),
+                    style: GoogleFonts.plusJakartaSans(
+                      color: isSelected ? AppColors.textDark : AppColors.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── DESCRIPTION (editable) ─────────────────────────────────
   Widget _buildDescriptionCard() => Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: AppColors.cardBg,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.divider, width: 1.2),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Description',
-                style: GoogleFonts.outfit(
+            Text(context.translate('description_label'),
+                style: GoogleFonts.plusJakartaSans(
                     color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             TextField(
               controller: _descCtrl,
               onChanged: (_) => _markChanged(),
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.plusJakartaSans(
                   color: AppColors.textSecondary, fontSize: 13, height: 1.6),
               decoration: InputDecoration(
                 border: InputBorder.none,
-                hintText: 'Add a description...',
-                hintStyle: GoogleFonts.outfit(color: AppColors.textHint, fontSize: 13),
+                hintText: context.translate('add_description_hint'),
+                hintStyle: GoogleFonts.plusJakartaSans(color: AppColors.textHint, fontSize: 13),
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -518,10 +694,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final subtasks = currentTaskNotifier.subtasksForTask(widget.task.id);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.cardBg,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.divider, width: 1.2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -529,54 +706,81 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Checklist',
-                  style: GoogleFonts.outfit(
+              Text(context.translate('checklist'),
+                  style: GoogleFonts.plusJakartaSans(
                       color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700)),
               GestureDetector(
                 onTap: () => _showAddSubtaskDialog(currentTaskNotifier),
-                child: const Icon(Icons.add_rounded, color: AppColors.mint, size: 22),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.innerCard,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.divider),
+                  ),
+                  child: const Icon(Icons.add_rounded, color: AppColors.mint, size: 18),
+                ),
               ),
             ],
           ),
           if (subtasks.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             ...subtasks.map((s) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 12),
                   child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => currentTaskNotifier.toggleSubtask(widget.task.id, s.id),
-                        child: Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: s.isCompleted ? AppColors.mint : Colors.transparent,
-                            border: Border.all(color: s.isCompleted ? AppColors.mint : AppColors.textHint, width: 2),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: s.isCompleted ? const Icon(Icons.check_rounded, size: 14, color: AppColors.textDark) : null,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(s.title,
-                            style: GoogleFonts.outfit(
-                                color: s.isCompleted ? AppColors.textSecondary : AppColors.textPrimary,
-                                fontSize: 13,
-                                decoration: s.isCompleted ? TextDecoration.lineThrough : null,
-                                decorationColor: AppColors.textSecondary)),
-                      ),
-                      GestureDetector(
-                        onTap: () => currentTaskNotifier.deleteSubtask(widget.task.id, s.id),
-                        child: const Icon(Icons.close_rounded, color: AppColors.textSecondary, size: 16),
-                      ),
-                    ],
+                     children: [
+                       GestureDetector(
+                         onTap: () {
+                           HapticFeedback.selectionClick();
+                           currentTaskNotifier.toggleSubtask(widget.task.id, s.id);
+                         },
+                         child: AnimatedContainer(
+                           duration: const Duration(milliseconds: 200),
+                           width: 22,
+                           height: 22,
+                           decoration: BoxDecoration(
+                             color: s.isCompleted ? AppColors.mint : Colors.transparent,
+                             border: Border.all(
+                               color: s.isCompleted ? AppColors.mint : AppColors.checkboxBorder,
+                               width: 1.5,
+                             ),
+                             borderRadius: BorderRadius.circular(6),
+                           ),
+                           child: s.isCompleted
+                               ? const Icon(Icons.check_rounded, size: 14, color: AppColors.textDark)
+                               : null,
+                         ),
+                       ),
+                       const SizedBox(width: 12),
+                       Expanded(
+                         child: Text(s.title,
+                             style: GoogleFonts.plusJakartaSans(
+                                 color: s.isCompleted ? AppColors.textSecondary : AppColors.textPrimary,
+                                 fontSize: 13.5,
+                                 decoration: s.isCompleted ? TextDecoration.lineThrough : null,
+                                 decorationColor: AppColors.textSecondary)),
+                       ),
+                       GestureDetector(
+                         onTap: () {
+                           HapticFeedback.lightImpact();
+                           currentTaskNotifier.deleteSubtask(widget.task.id, s.id);
+                         },
+                         child: Container(
+                           padding: const EdgeInsets.all(2),
+                           decoration: const BoxDecoration(
+                             color: Colors.transparent,
+                             shape: BoxShape.circle,
+                           ),
+                           child: const Icon(Icons.close_rounded, color: AppColors.textSecondary, size: 16),
+                         ),
+                       ),
+                     ],
                   ),
                 )),
           ] else ...[
-            const SizedBox(height: 12),
-            Text('No items in checklist. Tap + to add one.',
-                style: GoogleFonts.outfit(color: AppColors.textSecondary, fontSize: 13)),
+            const SizedBox(height: 14),
+            Text(context.translate('no_items_checklist'),
+                style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontSize: 13)),
           ],
         ],
       ),
@@ -590,24 +794,24 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.cardBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Add Checklist Item',
-            style: GoogleFonts.outfit(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+        title: Text(ctx.translate('add_checklist_item'),
+            style: GoogleFonts.plusJakartaSans(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
         content: TextField(
           controller: ctrl,
-          style: GoogleFonts.outfit(color: AppColors.textPrimary),
+          style: GoogleFonts.plusJakartaSans(color: AppColors.textPrimary),
           autofocus: true,
           decoration: InputDecoration(
-            hintText: 'e.g. Call client',
-            hintStyle: GoogleFonts.outfit(color: AppColors.textHint),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.divider)),
+            hintText: ctx.translate('eg_call_client'),
+            hintStyle: GoogleFonts.plusJakartaSans(color: AppColors.textHint),
+            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppColors.divider)),
             focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppColors.mint)),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel',
-                style: GoogleFonts.outfit(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+            child: Text(ctx.translate('cancel_btn'),
+                style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
           ),
           TextButton(
             onPressed: () {
@@ -616,8 +820,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               }
               Navigator.pop(ctx);
             },
-            child: Text('Add',
-                style: GoogleFonts.outfit(color: AppColors.mint, fontWeight: FontWeight.w700)),
+            child: Text(ctx.translate('add_btn'),
+                style: GoogleFonts.plusJakartaSans(color: AppColors.mint, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -632,16 +836,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             color: AppColors.error.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.error.withValues(alpha: 0.3), width: 1.2),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
               const SizedBox(width: 8),
-              Text('Delete Task',
-                  style: GoogleFonts.outfit(
+              Text(context.translate('delete_task'),
+                  style: GoogleFonts.plusJakartaSans(
                       color: AppColors.error, fontSize: 15, fontWeight: FontWeight.w700)),
             ],
           ),
@@ -650,16 +854,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   // ── SAVE BAR (shown when changes exist) ────────────────────
   Widget _buildSaveBar() => Container(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-        decoration: BoxDecoration(
+        padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
+        decoration: const BoxDecoration(
           color: AppColors.cardBg,
-          border: Border(top: BorderSide(color: AppColors.divider)),
+          border: Border(top: BorderSide(color: AppColors.divider, width: 1.2)),
         ),
         child: Row(
           children: [
             Expanded(
-              child: Text('You have unsaved changes',
-                  style: GoogleFonts.outfit(color: AppColors.textSecondary, fontSize: 13)),
+              child: Text(context.translate('you_have_unsaved_changes'),
+                  style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
             ),
             GestureDetector(
               onTap: _saveChanges,
@@ -669,8 +873,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   color: AppColors.mint,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text('Save',
-                    style: GoogleFonts.outfit(
+                child: Text(context.translate('save'),
+                    style: GoogleFonts.plusJakartaSans(
                         color: AppColors.textDark, fontSize: 14, fontWeight: FontWeight.w700)),
               ),
             ),
@@ -678,7 +882,3 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
       );
 }
-
-
-
-

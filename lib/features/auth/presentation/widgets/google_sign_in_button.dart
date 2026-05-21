@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../../core/localization/app_localizations.dart';
+
 class GoogleSignInButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
@@ -53,36 +55,36 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
               onTap: widget.isLoading ? null : widget.onPressed,
               child: Center(
                 child: widget.isLoading
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Color(0xFF4285F4),
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color(0xFF4285F4),
+                        ),
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SvgPicture.asset(
+                          'assets/google_logo.svg',
+                          width: 24,
+                          height: 24,
+                        ),
+                        const SizedBox(width: 14),
+                        Text(
+                          context.translate('sign_in_google'),
+                          style: const TextStyle(
+                            color: Color(0xFF1F2937),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.2,
                           ),
                         ),
-                      )
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SvgPicture.asset(
-                            'assets/google_logo.svg',
-                            width: 24,
-                            height: 24,
-                          ),
-                          const SizedBox(width: 14),
-                          const Text(
-                            'Continue with Google',
-                            style: TextStyle(
-                              color: Color(0xFF1F2937),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
+                    ),
               ),
             ),
           ),

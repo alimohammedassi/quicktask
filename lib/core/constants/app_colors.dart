@@ -13,6 +13,8 @@ class AppColors {
   static const purple = Color(0xFFD4BFFF);
   static const yellow = Color(0xFFF5EFA0);
   static const gold = Color(0xFFF5EFA0);
+  static const orange = Color(0xFFFFC58D);
+  static const pink = Color(0xFFFF94E8);
 
   // ── Text ───────────────────────────────────────────────────
   static const textPrimary = Color(0xFFFFFFFF);
@@ -42,7 +44,28 @@ class AppColors {
   static const bgDark = Color(0xFF0D0D0D);
   static const bgAuthDark = Color(0xFF0D0D14);
   static const surface = Color(0xFF1A1A1A);
-  static const accentPurple = Color(0xFFD4BFFF);
-  static const accentYellow = Color(0xFFF5EFA0);
   static const textDarkAlias = Color(0xFF111827);
+
+  static Color getCategoryColor(String cat) {
+    switch (cat.toLowerCase().trim()) {
+      case 'work':
+        return AppColors.purple;
+      case 'personal':
+        return AppColors.mint;
+      case 'health':
+      case 'fitness':
+        return AppColors.error;
+      case 'study':
+      case 'learning':
+        return AppColors.yellow;
+      case 'family':
+      case 'home':
+        return AppColors.orange;
+      case 'shopping':
+        return AppColors.pink;
+      default:
+        return AppColors.mint;
+    }
+  }
 }
+

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/localization/app_localizations.dart';
 
 class MainShellScreen extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -125,15 +126,15 @@ class _BottomNav extends StatelessWidget {
                 child: Container(
                   height: 64,
                   decoration: BoxDecoration(
-                    color: AppColors.cardBg.withOpacity(0.7),
+                    color: AppColors.cardBg.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(32),
                     border: Border.all(
-                      color: AppColors.divider.withOpacity(0.5),
+                      color: AppColors.divider.withValues(alpha: 0.5),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withValues(alpha: 0.3),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -144,19 +145,19 @@ class _BottomNav extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _PillNavItem(
-                        label: 'Tasks',
+                        label: context.translate('nav_tasks'),
                         icon: Icons.home_filled,
                         active: index == 0,
                         onTap: () => onTap(0),
                       ),
                       _PillNavItem(
-                        label: 'Stats',
+                        label: context.translate('nav_stats'),
                         icon: Icons.stacked_bar_chart_rounded,
                         active: index == 1,
                         onTap: () => onTap(1),
                       ),
                       _PillNavItem(
-                        label: 'Profile',
+                        label: context.translate('nav_profile'),
                         icon: Icons.person_rounded,
                         active: index == 4,
                         onTap: () => onTap(4),
@@ -184,15 +185,15 @@ class _BottomNav extends StatelessWidget {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: AppColors.cardBg.withOpacity(0.7),
+                      color: AppColors.cardBg.withValues(alpha: 0.7),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppColors.divider.withOpacity(0.5),
+                        color: AppColors.divider.withValues(alpha: 0.5),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
+                          color: Colors.black.withValues(alpha: 0.3),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
@@ -239,7 +240,7 @@ class _PillNavItem extends StatelessWidget {
           vertical: 10,
         ),
         decoration: BoxDecoration(
-          color: active ? AppColors.mint.withOpacity(0.15) : Colors.transparent,
+          color: active ? AppColors.mint.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Row(

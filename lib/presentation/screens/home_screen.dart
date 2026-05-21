@@ -3,10 +3,12 @@ import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/localization/app_localizations.dart';
 import '../providers/task_provider.dart';
 import '../providers/current_task_provider.dart';
 import 'add_task_screen.dart';
@@ -15,12 +17,13 @@ import 'summary_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/task_card.dart';
 import '../../core/database/task_model_hive.dart';
+import '../../domain/models/subtask.dart';
 
 // ─────────────────────────────────────────────────────────────
 // Design tokens (consistent 8dp rhythm)
 // ─────────────────────────────────────────────────────────────
 const _kPad = 20.0;
-const _kGap = 10.0;
+const _kGap = 4.2;
 
 // ═══════════════════════════════════════════════════════════════
 // HOME SCREEN
@@ -32,10 +35,19 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   int _navIdx = 0;
   late final AnimationController _fabCtrl;
   late final Animation<double> _fabScale;
+
+  // ── Staggered entrance animations ──────────────────────────
+  late final AnimationController _entranceCtrl;
+  late final Animation<double> _topBarAnim;
+  late final Animation<double> _weekNavAnim;
+  late final Animation<double> _mintCardAnim;
+  late final Animation<Offset> _mintCardSlide;
+  late final Animation<double> _taskListAnim;
+  late final Animation<double> _navBarAnim;
 
   @override
   void initState() {
@@ -44,11 +56,45 @@ class _HomeScreenState extends State<HomeScreen>
         vsync: this, duration: const Duration(milliseconds: 120));
     _fabScale = Tween<double>(begin: 1.0, end: 0.92)
         .animate(CurvedAnimation(parent: _fabCtrl, curve: Curves.easeInOut));
+
+    // Stagger controller — 900ms total for smooth cascade
+    _entranceCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+
+    _topBarAnim = CurvedAnimation(
+      parent: _entranceCtrl,
+      curve: const Interval(0.0, 0.3, curve: Curves.easeOut),
+    );
+    _weekNavAnim = CurvedAnimation(
+      parent: _entranceCtrl,
+      curve: const Interval(0.1, 0.4, curve: Curves.easeOut),
+    );
+    _mintCardAnim = CurvedAnimation(
+      parent: _entranceCtrl,
+      curve: const Interval(0.2, 0.55, curve: Curves.easeOutCubic),
+    );
+    _mintCardSlide = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(_mintCardAnim);
+    _taskListAnim = CurvedAnimation(
+      parent: _entranceCtrl,
+      curve: const Interval(0.35, 0.75, curve: Curves.easeOut),
+    );
+    _navBarAnim = CurvedAnimation(
+      parent: _entranceCtrl,
+      curve: const Interval(0.5, 1.0, curve: Curves.easeOutCubic),
+    );
+
+    _entranceCtrl.forward();
   }
 
   @override
   void dispose() {
     _fabCtrl.dispose();
+    _entranceCtrl.dispose();
     super.dispose();
   }
 
@@ -63,27 +109,36 @@ class _HomeScreenState extends State<HomeScreen>
             _buildBody(),
             Align(
               alignment: Alignment.bottomCenter,
-              child: _BottomNav(
-                index: _navIdx,
-                fabCtrl: _fabCtrl,
-                fabScale: _fabScale,
-                onTap: (i) {
-                  if (i == 2) {
-                    HapticFeedback.mediumImpact();
-                    Navigator.push(context, _slideUp(const AddTaskScreen()));
-                    return;
-                  }
-                  if (i == 1) {
-                    Navigator.push(context, _slideUp(const SummaryScreen()));
-                    return;
-                  }
-                  if (i == 4) {
-                    Navigator.push(context, _slideUp(const ProfileScreen()));
-                    return;
-                  }
-                  HapticFeedback.selectionClick();
-                  setState(() => _navIdx = i);
-                },
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 1.2),
+                  end: Offset.zero,
+                ).animate(_navBarAnim),
+                child: FadeTransition(
+                  opacity: _navBarAnim,
+                  child: _BottomNav(
+                    index: _navIdx,
+                    fabCtrl: _fabCtrl,
+                    fabScale: _fabScale,
+                    onTap: (i) {
+                      if (i == 2) {
+                        HapticFeedback.mediumImpact();
+                        Navigator.push(context, _slideUp(const AddTaskScreen()));
+                        return;
+                      }
+                      if (i == 1) {
+                        Navigator.push(context, _slideUp(const SummaryScreen()));
+                        return;
+                      }
+                      if (i == 4) {
+                        Navigator.push(context, _slideUp(const ProfileScreen()));
+                        return;
+                      }
+                      HapticFeedback.selectionClick();
+                      setState(() => _navIdx = i);
+                    },
+                  ),
+                ),
               ),
             ),
           ],
@@ -106,37 +161,56 @@ class _HomeScreenState extends State<HomeScreen>
           padding: const EdgeInsets.fromLTRB(_kPad, 0, _kPad, 150),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              _TopBar(user: user),
+              // ── Top bar with fade-in ───────────────────────────
+              FadeTransition(
+                opacity: _topBarAnim,
+                child: _TopBar(user: user),
+              ),
               const SizedBox(height: 16),
-              const _WeekNav(),
+
+              // ── Week nav with fade-in ──────────────────────────
+              FadeTransition(
+                opacity: _weekNavAnim,
+                child: const _WeekNav(),
+              ),
               const SizedBox(height: 20),
 
-              // ── Current Task Mint Card ─────────────────────────
-              _CurrentTaskMintCard(
-                currentTaskNotifier: currentTask,
-                completedTasks: completed,
-                pendingTasks: pending,
+              // ── Current Task Mint Card with slide-up ───────────
+              SlideTransition(
+                position: _mintCardSlide,
+                child: FadeTransition(
+                  opacity: _mintCardAnim,
+                  child: _CurrentTaskMintCard(
+                    currentTaskNotifier: currentTask,
+                    completedTasks: completed,
+                    pendingTasks: pending,
+                  ),
+                ),
               ),
               const SizedBox(height: 28),
 
               // ── Pending tasks ─────────────────────────────────
               if (pending.isNotEmpty) ...[
                 _SectionHeader(
-                  title: 'All Tasks',
+                  title: context.translate('all_tasks'),
                   badge: '${pending.length}',
-                  action: 'See All',
+                  action: context.translate('see_all'),
                   onAction: () {},
                 ),
                 const SizedBox(height: _kGap),
                 ...List.generate(pending.length, (i) {
                   final task = pending[i];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: _kGap),
-                    child: AllTaskTile(
-                      task: task,
-                      onTap: () => _openDetail(task),
-                      onToggleComplete: () => _completeTask(notifier, task),
-                      onDelete: () => _deleteTask(notifier, task),
+                  return _StaggeredTaskItem(
+                    index: i,
+                    parentAnimation: _taskListAnim,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: _kGap),
+                      child: AllTaskTile(
+                        task: task,
+                        onTap: () => _openDetail(task),
+                        onToggleComplete: () => _completeTask(notifier, task),
+                        onDelete: () => _deleteTask(notifier, task),
+                      ),
                     ),
                   );
                 }),
@@ -146,22 +220,26 @@ class _HomeScreenState extends State<HomeScreen>
               if (completed.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 _SectionHeader(
-                  title: 'Completed',
+                  title: context.translate('completed'),
                   badge: '${completed.length}',
-                  action: 'Clear all',
+                  action: context.translate('clear_all'),
                   onAction: () {},
                   badgeColor: AppColors.mint,
                 ),
                 const SizedBox(height: _kGap),
                 ...List.generate(completed.length, (i) {
                   final task = completed[i];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: _kGap),
-                    child: AllTaskTile(
-                      task: task,
-                      onTap: () => _openDetail(task),
-                      onToggleComplete: () => _completeTask(notifier, task),
-                      onDelete: () => _deleteTask(notifier, task),
+                  return _StaggeredTaskItem(
+                    index: i,
+                    parentAnimation: _taskListAnim,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: _kGap),
+                      child: AllTaskTile(
+                        task: task,
+                        onTap: () => _openDetail(task),
+                        onToggleComplete: () => _completeTask(notifier, task),
+                        onDelete: () => _deleteTask(notifier, task),
+                      ),
                     ),
                   );
                 }),
@@ -181,19 +259,26 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _openDetail(TaskModelHive task) async {
-    await Navigator.push(context, _slideUp(TaskDetailScreen(task: task)));
+    await Navigator.of(context, rootNavigator: true)
+        .push(_slideUp(TaskDetailScreen(task: task)));
     if (mounted) setState(() {});
   }
 
   void _completeTask(TasksNotifier notifier, TaskModelHive task) {
     HapticFeedback.mediumImpact();
     notifier.toggleComplete(task.id);
+    final currentTask = context.read<CurrentTaskNotifier>();
+    if (currentTask.currentTaskId == task.id) {
+      currentTask.clearCurrentTask();
+    }
     _showSnackBar(
       icon: task.isCompleted ? Icons.undo_rounded : Icons.check_circle_rounded,
-      message: task.isCompleted ? 'Marked as pending' : 'Task completed! 🎉',
+      message: task.isCompleted
+          ? context.translate('marked_pending_toast')
+          : context.translate('task_completed_toast'),
       color: task.isCompleted ? AppColors.purple : AppColors.mint,
       action: SnackBarAction(
-        label: 'Undo',
+        label: context.translate('undo'),
         textColor: AppColors.textDark,
         onPressed: () => notifier.toggleComplete(task.id),
       ),
@@ -203,9 +288,13 @@ class _HomeScreenState extends State<HomeScreen>
   void _deleteTask(TasksNotifier notifier, TaskModelHive task) {
     HapticFeedback.heavyImpact();
     notifier.deleteTask(task);
+    final currentTask = context.read<CurrentTaskNotifier>();
+    if (currentTask.currentTaskId == task.id) {
+      currentTask.clearCurrentTask();
+    }
     _showSnackBar(
       icon: Icons.delete_rounded,
-      message: '"${task.title}" deleted',
+      message: '"${task.title}" ${context.translate('deleted_toast')}',
       color: AppColors.error,
     );
   }
@@ -223,7 +312,7 @@ class _HomeScreenState extends State<HomeScreen>
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: Colors.white, size: 16),
@@ -247,13 +336,102 @@ class _HomeScreenState extends State<HomeScreen>
 
   Route _slideUp(Widget page) => PageRouteBuilder(
         pageBuilder: (_, __, ___) => page,
-        transitionsBuilder: (_, a, __, child) => SlideTransition(
-          position: Tween(begin: const Offset(0, 1), end: Offset.zero)
-              .animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
-          child: child,
-        ),
-        transitionDuration: const Duration(milliseconds: 340),
+        transitionsBuilder: (_, a, __, child) {
+          final curved = CurvedAnimation(parent: a, curve: Curves.easeOutCubic);
+          return FadeTransition(
+            opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+              CurvedAnimation(parent: a, curve: const Interval(0.0, 0.5, curve: Curves.easeOut)),
+            ),
+            child: SlideTransition(
+              position: Tween(begin: const Offset(0, 0.3), end: Offset.zero).animate(curved),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 420),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
       );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STAGGERED TASK ITEM — cascading fade+slide for each card
+// ═══════════════════════════════════════════════════════════════
+class _StaggeredTaskItem extends StatefulWidget {
+  const _StaggeredTaskItem({
+    required this.index,
+    required this.parentAnimation,
+    required this.child,
+  });
+
+  final int index;
+  final Animation<double> parentAnimation;
+  final Widget child;
+
+  @override
+  State<_StaggeredTaskItem> createState() => _StaggeredTaskItemState();
+}
+
+class _StaggeredTaskItemState extends State<_StaggeredTaskItem>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _fadeAnim;
+  late final Animation<Offset> _slideAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+
+    _fadeAnim = CurvedAnimation(
+      parent: _ctrl,
+      curve: Curves.easeOut,
+    );
+
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _ctrl,
+      curve: Curves.easeOutCubic,
+    ));
+
+    // Trigger after a staggered delay based on index
+    final delayMs = 80 + (widget.index * 60);
+    if (widget.parentAnimation.isCompleted) {
+      Future.delayed(Duration(milliseconds: delayMs), () {
+        if (mounted) _ctrl.forward();
+      });
+    } else {
+      widget.parentAnimation.addStatusListener((status) {
+        if (status == AnimationStatus.completed ||
+            status == AnimationStatus.forward) {
+          Future.delayed(Duration(milliseconds: delayMs), () {
+            if (mounted) _ctrl.forward();
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: SlideTransition(
+        position: _slideAnim,
+        child: widget.child,
+      ),
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -272,28 +450,32 @@ class _CurrentTaskMintCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final focusTask = currentTaskNotifier.currentTask;
-    
+    final focusTask = currentTaskNotifier.currentTask ??
+        (pendingTasks.isNotEmpty ? pendingTasks.first : null);
+
     // Title determination: Pinned task or first pending task, otherwise "No active tasks"
     final String focusTaskTitle = focusTask != null
         ? focusTask.title
-        : (pendingTasks.isNotEmpty ? pendingTasks.first.title : 'No active tasks');
+        : context.translate('no_active_tasks');
 
     // Progress determination: Pinned task's subtasks progress, otherwise overall progress
     final double focusProgress;
     if (focusTask != null) {
-      focusProgress = currentTaskNotifier.progress;
+      focusProgress = currentTaskNotifier.progressForTask(focusTask.id);
     } else {
       final total = completedTasks.length + pendingTasks.length;
       focusProgress = total == 0 ? 0.0 : completedTasks.length / total;
     }
 
     // Categories: Pinned task's categories, or first pending's categories, or default
-    final List<String> categories = focusTask != null
-        ? focusTask.categories
-        : (pendingTasks.isNotEmpty ? pendingTasks.first.categories : []);
+    final List<String> categories =
+        focusTask != null ? focusTask.categories : [];
 
     final displayCategories = categories.isEmpty ? ['QuickTask'] : categories;
+
+    final taskSubs = focusTask != null
+        ? currentTaskNotifier.subtasksForTask(focusTask.id)
+        : <SubTask>[];
 
     return Container(
       width: double.infinity,
@@ -303,7 +485,7 @@ class _CurrentTaskMintCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: AppColors.mint.withOpacity(0.12),
+            color: AppColors.mint.withValues(alpha: 0.12),
             blurRadius: 24,
             offset: const Offset(0, 12),
           ),
@@ -322,9 +504,9 @@ class _CurrentTaskMintCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Current tasks'.toUpperCase(),
+                      context.translate('current_tasks').toUpperCase(),
                       style: TextStyle(
-                        color: Colors.black.withOpacity(0.4),
+                        color: Colors.black.withValues(alpha: 0.4),
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1.2,
@@ -343,6 +525,74 @@ class _CurrentTaskMintCard extends StatelessWidget {
                         height: 1.2,
                       ),
                     ),
+                    // Subtask checklist
+                    if (focusTask != null && taskSubs.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      ...taskSubs.take(3).map((sub) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: GestureDetector(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                currentTaskNotifier.toggleSubtask(
+                                    focusTask.id, sub.id);
+                              },
+                              behavior: HitTestBehavior.opaque,
+                              child: Row(
+                                children: [
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    width: 16,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: sub.isCompleted
+                                          ? Colors.black
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(5),
+                                      border: Border.all(
+                                        color: sub.isCompleted
+                                            ? Colors.black
+                                            : Colors.black
+                                                .withValues(alpha: 0.25),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: sub.isCompleted
+                                        ? const Center(
+                                            child: Icon(
+                                              Icons.check_rounded,
+                                              size: 11,
+                                              color: AppColors.mint,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      sub.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: sub.isCompleted
+                                            ? Colors.black
+                                                .withValues(alpha: 0.4)
+                                            : Colors.black,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        decoration: sub.isCompleted
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                        decorationColor:
+                                            Colors.black.withValues(alpha: 0.4),
+                                        decorationThickness: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 28),
@@ -353,13 +603,14 @@ class _CurrentTaskMintCard extends StatelessWidget {
                   children: [
                     // White trend pill
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -368,7 +619,8 @@ class _CurrentTaskMintCard extends StatelessWidget {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.trending_up_rounded, color: Colors.black, size: 12),
+                          Icon(Icons.trending_up_rounded,
+                              color: Colors.black, size: 12),
                           SizedBox(width: 4),
                           Text(
                             '+12%',
@@ -381,31 +633,32 @@ class _CurrentTaskMintCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    
+
                     // Black category tag pills
                     ...displayCategories.take(2).map((cat) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        cat.toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                    )),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.black,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            cat.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        )),
                   ],
                 ),
               ],
             ),
           ),
           const SizedBox(width: 16),
-          
+
           // Right Side: Navigation Buttons & Gauge
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -426,12 +679,13 @@ class _CurrentTaskMintCard extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: const Center(
-                        child: Icon(Icons.share_rounded, color: Colors.black, size: 16),
+                        child: Icon(Icons.share_rounded,
+                            color: Colors.black, size: 16),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  
+
                   // Diagonal Arrow Button to Stats Screen
                   GestureDetector(
                     onTap: () {
@@ -440,9 +694,12 @@ class _CurrentTaskMintCard extends StatelessWidget {
                         context,
                         PageRouteBuilder(
                           pageBuilder: (_, __, ___) => const SummaryScreen(),
-                          transitionsBuilder: (_, a, __, child) => SlideTransition(
-                            position: Tween(begin: const Offset(0, 1), end: Offset.zero)
-                                .animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
+                          transitionsBuilder: (_, a, __, child) =>
+                              SlideTransition(
+                            position: Tween(
+                                    begin: const Offset(0, 1), end: Offset.zero)
+                                .animate(CurvedAnimation(
+                                    parent: a, curve: Curves.easeOutCubic)),
                             child: child,
                           ),
                         ),
@@ -456,7 +713,8 @@ class _CurrentTaskMintCard extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: const Center(
-                        child: Icon(Icons.arrow_outward_rounded, color: Colors.white, size: 16),
+                        child: Icon(Icons.arrow_outward_rounded,
+                            color: Colors.white, size: 16),
                       ),
                     ),
                   ),
@@ -472,43 +730,94 @@ class _CurrentTaskMintCard extends StatelessWidget {
   }
 }
 
-class _SemiDonutGauge extends StatelessWidget {
+class _SemiDonutGauge extends StatefulWidget {
   const _SemiDonutGauge({required this.progress});
   final double progress;
 
   @override
+  State<_SemiDonutGauge> createState() => _SemiDonutGaugeState();
+}
+
+class _SemiDonutGaugeState extends State<_SemiDonutGauge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late Animation<double> _progressAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _progressAnim = Tween<double>(begin: 0.0, end: widget.progress).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic),
+    );
+    // Short delay so the card has time to slide in first
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _SemiDonutGauge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.progress != widget.progress) {
+      _progressAnim = Tween<double>(
+        begin: _progressAnim.value,
+        end: widget.progress,
+      ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      _ctrl
+        ..reset()
+        ..forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 100,
-      height: 100,
-      child: CustomPaint(
-        painter: _SemiDonutPainter(progress: progress),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(height: 12),
-              Text(
-                '${(progress * 100).round()}%',
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -1,
-                ),
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        final value = _progressAnim.value;
+        return SizedBox(
+          width: 100,
+          height: 100,
+          child: CustomPaint(
+            painter: _SemiDonutPainter(progress: value),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 12),
+                  Text(
+                    '${(value * 100).round()}%',
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1,
+                    ),
+                  ),
+                  Text(
+                    context.translate('done'),
+                    style: TextStyle(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                'Done',
-                style: TextStyle(
-                  color: Colors.black.withOpacity(0.5),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -531,7 +840,7 @@ class _SemiDonutPainter extends CustomPainter {
       sweep,
       false,
       Paint()
-        ..color = Colors.black.withOpacity(0.08)
+        ..color = Colors.black.withValues(alpha: 0.08)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 12
         ..strokeCap = StrokeCap.round,
@@ -569,118 +878,172 @@ class _TopBar extends StatelessWidget {
     final name = user?.userMetadata?['display_name'] as String? ?? 'User';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Row(
-        children: [
-          // Avatar
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.purple, width: 2),
-            ),
-            child: CircleAvatar(
-              radius: 20,
-              backgroundColor: AppColors.purple.withOpacity(0.2),
-              backgroundImage: user?.userMetadata?['avatar_url'] != null
-                  ? NetworkImage(user!.userMetadata!['avatar_url'] as String)
-                  : null,
-              child: user?.userMetadata?['avatar_url'] == null
-                  ? Text(initial,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                      ))
-                  : null,
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // Greeting
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Welcome back,',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    )),
-                Text(name,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-
-          // Notification bell — NOT sign out
-          _IconBtn(
-            icon: Icons.notifications_outlined,
-            onTap: () {/* TODO: open notifications */},
-            badge: true,
-          ),
-          const SizedBox(width: 8),
-          _IconBtn(
-            icon: Icons.search_rounded,
-            onTap: () {/* TODO: search */},
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: AppColors.divider.withValues(alpha: 0.5),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _IconBtn extends StatelessWidget {
-  const _IconBtn({required this.icon, required this.onTap, this.badge = false});
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool badge;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Stack(
-            alignment: Alignment.center,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Row(
             children: [
+              // Avatar with dual gradient border and outer glow shadow
               Container(
-                width: 38,
-                height: 38,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  color: AppColors.cardBg,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.divider),
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [AppColors.mint, AppColors.purple],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.mint.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ],
                 ),
-                child: Icon(icon, color: AppColors.textPrimary, size: 20),
+                padding: const EdgeInsets.all(2.5),
+                child: CircleAvatar(
+                  radius: 23,
+                  backgroundColor: AppColors.cardBg,
+                  backgroundImage: user?.userMetadata?['avatar_url'] != null
+                      ? NetworkImage(user!.userMetadata!['avatar_url'] as String)
+                      : null,
+                  child: user?.userMetadata?['avatar_url'] == null
+                      ? Text(initial,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                          ))
+                      : null,
+                ),
               ),
-              if (badge)
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: AppColors.error,
-                      shape: BoxShape.circle,
+              const SizedBox(width: 14),
+
+              // Greeting
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      context.translate('welcome_back'),
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w300,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      name,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textPrimary,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Calendar Sync Pill
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.check_circle_rounded, color: AppColors.mint, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Synced with Google Calendar',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: AppColors.cardBg,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: AppColors.divider.withValues(alpha: 0.5)),
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.mint.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.mint.withValues(alpha: 0.25),
+                      width: 1,
                     ),
                   ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.calendar_today_rounded,
+                        color: AppColors.mint,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 6),
+                      // Pulse Indicator dot
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: AppColors.mint,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.mint,
+                              blurRadius: 4,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ),
             ],
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -692,7 +1055,8 @@ class _WeekNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final day = DateFormat('EEEE, MMMM d').format(now);
+    final locale = Localizations.localeOf(context).languageCode;
+    final day = DateFormat('EEEE, MMMM d', locale).format(now);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -702,8 +1066,8 @@ class _WeekNav extends StatelessWidget {
             Text(day,
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
             const SizedBox(height: 2),
-            const Text('This Week',
-                style: TextStyle(
+            Text(context.translate('this_week'),
+                style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -764,7 +1128,7 @@ class _SectionHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: (badgeColor ?? AppColors.purple).withOpacity(0.15),
+              color: (badgeColor ?? AppColors.purple).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(badge,
@@ -788,78 +1152,124 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// EMPTY STATE
+// EMPTY STATE — with breathing pulse
 // ═══════════════════════════════════════════════════════════════
-class _EmptyState extends StatelessWidget {
+class _EmptyState extends StatefulWidget {
   const _EmptyState({required this.onAdd});
   final VoidCallback onAdd;
 
   @override
+  State<_EmptyState> createState() => _EmptyStateState();
+}
+
+class _EmptyStateState extends State<_EmptyState>
+    with TickerProviderStateMixin {
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulseAnim;
+  late final AnimationController _fadeCtrl;
+  late final Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    // Breathing pulse on the icon
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+    _pulseAnim = Tween<double>(begin: 0.92, end: 1.08).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+
+    // Fade-in entrance
+    _fadeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
+    _fadeCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    _fadeCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Column(
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppColors.cardBg,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.divider, width: 1.5),
-            ),
-            child: const Icon(Icons.task_alt_rounded,
-                size: 36, color: AppColors.textHint),
-          ),
-          const SizedBox(height: 20),
-          const Text('All clear!',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              )),
-          const SizedBox(height: 8),
-          const Text('You have no tasks yet.\nTap the + button to get started.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-                height: 1.5,
-              )),
-          const SizedBox(height: 28),
-          GestureDetector(
-            onTap: onAdd,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.mint, Color(0xFF2BBDAE)],
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Column(
+          children: [
+            ScaleTransition(
+              scale: _pulseAnim,
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: AppColors.cardBg,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.divider, width: 1.5),
                 ),
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.mint.withOpacity(0.3),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.add_rounded, color: AppColors.textDark, size: 18),
-                  SizedBox(width: 6),
-                  Text('Add First Task',
-                      style: TextStyle(
-                        color: AppColors.textDark,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                      )),
-                ],
+                child: const Icon(Icons.task_alt_rounded,
+                    size: 36, color: AppColors.textHint),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+            Text(context.translate('all_clear'),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                )),
+            const SizedBox(height: 8),
+            Text(context.translate('empty_state_subtitle'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.5,
+                )),
+            const SizedBox(height: 28),
+            GestureDetector(
+              onTap: widget.onAdd,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.mint, Color(0xFF2BBDAE)],
+                  ),
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.mint.withValues(alpha: 0.3),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.add_rounded,
+                        color: AppColors.textDark, size: 18),
+                    const SizedBox(width: 6),
+                    Text(context.translate('add_first_task'),
+                        style: const TextStyle(
+                          color: AppColors.textDark,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        )),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -896,15 +1306,15 @@ class _BottomNav extends StatelessWidget {
                 child: Container(
                   height: 64,
                   decoration: BoxDecoration(
-                    color: AppColors.cardBg.withOpacity(0.7),
+                    color: AppColors.cardBg.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(32),
                     border: Border.all(
-                      color: AppColors.divider.withOpacity(0.5),
+                      color: AppColors.divider.withValues(alpha: 0.5),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withValues(alpha: 0.3),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -915,19 +1325,19 @@ class _BottomNav extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _PillNavItem(
-                        label: 'Tasks',
+                        label: context.translate('nav_tasks'),
                         icon: Icons.home_filled,
                         active: index == 0,
                         onTap: () => onTap(0),
                       ),
                       _PillNavItem(
-                        label: 'Stats',
+                        label: context.translate('nav_stats'),
                         icon: Icons.stacked_bar_chart_rounded,
                         active: index == 1,
                         onTap: () => onTap(1),
                       ),
                       _PillNavItem(
-                        label: 'Profile',
+                        label: context.translate('nav_profile'),
                         icon: Icons.person_rounded,
                         active: index == 4,
                         onTap: () => onTap(4),
@@ -956,15 +1366,15 @@ class _BottomNav extends StatelessWidget {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: AppColors.cardBg.withOpacity(0.7),
+                      color: AppColors.cardBg.withValues(alpha: 0.7),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppColors.divider.withOpacity(0.5),
+                        color: AppColors.divider.withValues(alpha: 0.5),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
+                          color: Colors.black.withValues(alpha: 0.3),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
@@ -1011,7 +1421,9 @@ class _PillNavItem extends StatelessWidget {
           vertical: 10,
         ),
         decoration: BoxDecoration(
-          color: active ? AppColors.mint.withOpacity(0.15) : Colors.transparent,
+          color: active
+              ? AppColors.mint.withValues(alpha: 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Row(
