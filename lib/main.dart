@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/router/app_router.dart';
 import 'core/constants/app_colors.dart';
+import 'core/providers/theme_provider.dart';
 import 'core/database/database_service.dart';
 import 'services/notification_service.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -89,6 +90,9 @@ void main() async {
         ChangeNotifierProvider<LocaleProvider>(
           create: (_) => LocaleProvider(),
         ),
+        ChangeNotifierProvider<ThemeNotifier>(
+          create: (_) => ThemeNotifier(),
+        ),
       ],
       child: const QuickTaskApp(),
     ),
@@ -111,9 +115,56 @@ class _QuickTaskAppState extends State<QuickTaskApp> {
     _router = createAppRouter(context.read<AuthNotifier>());
   }
 
+  ThemeData _buildTheme(AppThemeTokens tokens, bool isDark) {
+    final base = isDark ? ThemeData.dark() : ThemeData.light();
+    return base.copyWith(
+      extensions: [tokens],
+      scaffoldBackgroundColor: tokens.background,
+      colorScheme: (isDark ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(
+        primary: tokens.mint,
+        secondary: tokens.purple,
+        surface: tokens.cardBg,
+        onSurface: tokens.textPrimary,
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: tokens.background,
+        elevation: 0,
+        foregroundColor: tokens.textPrimary,
+      ),
+      cardColor: tokens.cardBg,
+      dividerColor: tokens.divider,
+      textTheme: GoogleFonts.plusJakartaSansTextTheme(
+        base.textTheme.copyWith(
+          displayLarge: const TextStyle(fontWeight: FontWeight.w200),
+          displayMedium: const TextStyle(fontWeight: FontWeight.w200),
+          displaySmall: const TextStyle(fontWeight: FontWeight.w200),
+          headlineLarge: const TextStyle(fontWeight: FontWeight.w200),
+          headlineMedium: const TextStyle(fontWeight: FontWeight.w200),
+          headlineSmall: const TextStyle(fontWeight: FontWeight.w200),
+          titleLarge: const TextStyle(fontWeight: FontWeight.w300),
+          titleMedium: const TextStyle(fontWeight: FontWeight.w300),
+          titleSmall: const TextStyle(fontWeight: FontWeight.w300),
+          bodyLarge: const TextStyle(fontWeight: FontWeight.w200),
+          bodyMedium: TextStyle(color: tokens.textPrimary, fontWeight: FontWeight.w200),
+          bodySmall: const TextStyle(fontWeight: FontWeight.w200),
+          labelLarge: const TextStyle(fontWeight: FontWeight.w300),
+          labelMedium: const TextStyle(fontWeight: FontWeight.w300),
+          labelSmall: const TextStyle(fontWeight: FontWeight.w300),
+        ),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: tokens.mint,
+        linearTrackColor: tokens.divider,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final localeProvider = context.watch<LocaleProvider>();
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final isDark = themeNotifier.isDark;
+    final tokens = isDark ? darkTokens : lightTokens;
 
     return MaterialApp.router(
       title: 'QuickTask',
@@ -126,45 +177,7 @@ class _QuickTaskAppState extends State<QuickTaskApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: AppColors.background,
-        colorScheme: const ColorScheme.dark(
-          primary: AppColors.mint,
-          secondary: AppColors.purple,
-          surface: AppColors.cardBg,
-          onSurface: AppColors.textPrimary,
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.background,
-          elevation: 0,
-          foregroundColor: AppColors.textPrimary,
-        ),
-        cardColor: AppColors.cardBg,
-        dividerColor: AppColors.divider,
-        textTheme: GoogleFonts.plusJakartaSansTextTheme(
-          ThemeData.dark().textTheme.copyWith(
-            displayLarge: const TextStyle(fontWeight: FontWeight.w200),
-            displayMedium: const TextStyle(fontWeight: FontWeight.w200),
-            displaySmall: const TextStyle(fontWeight: FontWeight.w200),
-            headlineLarge: const TextStyle(fontWeight: FontWeight.w200),
-            headlineMedium: const TextStyle(fontWeight: FontWeight.w200),
-            headlineSmall: const TextStyle(fontWeight: FontWeight.w200),
-            titleLarge: const TextStyle(fontWeight: FontWeight.w300),
-            titleMedium: const TextStyle(fontWeight: FontWeight.w300),
-            titleSmall: const TextStyle(fontWeight: FontWeight.w300),
-            bodyLarge: const TextStyle(fontWeight: FontWeight.w200),
-            bodyMedium: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w200),
-            bodySmall: const TextStyle(fontWeight: FontWeight.w200),
-            labelLarge: const TextStyle(fontWeight: FontWeight.w300),
-            labelMedium: const TextStyle(fontWeight: FontWeight.w300),
-            labelSmall: const TextStyle(fontWeight: FontWeight.w300),
-          ),
-        ),
-        progressIndicatorTheme: const ProgressIndicatorThemeData(
-          color: AppColors.accent,
-          linearTrackColor: AppColors.divider,
-        ),
-      ),
+      theme: _buildTheme(tokens, isDark),
       routerConfig: _router,
     );
   }

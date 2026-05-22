@@ -70,6 +70,7 @@ class _SummaryScreenState extends State<SummaryScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final n = context.watch<TasksNotifier>();
     final total = n.tasks.length;
     final done = n.completedTasks.length;
@@ -84,7 +85,7 @@ class _SummaryScreenState extends State<SummaryScreen>
     final focusHours = done; // 1 hour per completed task to match home_screen
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: tokens.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -101,7 +102,7 @@ class _SummaryScreenState extends State<SummaryScreen>
                         child: _StatCard(
                           value: '${focusHours}h',
                           label: context.translate('total_focus'),
-                          color: AppColors.purple,
+                          color: tokens.purple,
                           change: '+${focusHours > 0 ? focusHours : 12}',
                         ),
                       ),
@@ -110,7 +111,7 @@ class _SummaryScreenState extends State<SummaryScreen>
                         child: _StatCard(
                           value: '$done',
                           label: context.translate('tasks_done'),
-                          color: AppColors.yellow,
+                          color: tokens.yellow,
                           change: '+${done > 0 ? done : 12}',
                         ),
                       ),
@@ -138,6 +139,7 @@ class _SummaryScreenState extends State<SummaryScreen>
 class _AppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final canPop = Navigator.canPop(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -155,7 +157,7 @@ class _AppBar extends StatelessWidget {
           Text(
             context.translate('summary'),
             style: GoogleFonts.plusJakartaSans(
-              color: AppColors.textPrimary,
+              color: tokens.textPrimary,
               fontSize: 20,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
@@ -171,29 +173,32 @@ class _AppBar extends StatelessWidget {
     );
   }
 
-  Widget _iconBtn(BuildContext context, IconData icon, {VoidCallback? onTap}) =>
-      GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: AppColors.cardBg,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: AppColors.divider.withValues(alpha: 0.5),
-              width: 1.2,
-            ),
+  Widget _iconBtn(BuildContext context, IconData icon, {VoidCallback? onTap}) {
+    final tokens = context.tokens;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: tokens.cardBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: tokens.divider.withValues(alpha: 0.5),
+            width: 1.2,
           ),
-          child: Icon(icon, color: AppColors.textPrimary, size: 22),
         ),
-      );
+        child: Icon(icon, color: tokens.textPrimary, size: 22),
+      ),
+    );
+  }
 }
 
 // ── TASK ACTIVITY CARD ──────────────────────────────────────
 class _ActivityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final tasks = context.watch<TasksNotifier>().tasks;
     final counts = List.filled(7, 0);
     final now = DateTime.now();
@@ -234,7 +239,7 @@ class _ActivityCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppColors.mint,
+        color: tokens.mint,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
@@ -249,7 +254,7 @@ class _ActivityCard extends StatelessWidget {
                   Text(
                     context.translate('task_activity'),
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppColors.textDark,
+                      color: tokens.textDark,
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.5,
@@ -259,7 +264,7 @@ class _ActivityCard extends StatelessWidget {
                   Text(
                     context.translate('avg_tasks_per_day').replaceAll('{avg}', avg),
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppColors.textDark.withValues(alpha: 0.6),
+                      color: tokens.textDark.withValues(alpha: 0.6),
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -294,7 +299,7 @@ class _ActivityCard extends StatelessWidget {
                       .map((l) => Text(
                             l,
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppColors.textDark.withValues(alpha: 0.5),
+                              color: tokens.textDark.withValues(alpha: 0.5),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
@@ -328,7 +333,7 @@ class _ActivityCard extends StatelessWidget {
                           Text(
                             weekdayName,
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppColors.textDark.withValues(alpha: 0.7),
+                              color: tokens.textDark.withValues(alpha: 0.7),
                               fontSize: 11,
                               fontWeight: isBold ? FontWeight.w700 : FontWeight.normal,
                             ),
@@ -360,61 +365,64 @@ class _StatCard extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => Container(
-        height: 124,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    value,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppColors.textDark,
-                      fontSize: 34,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                      letterSpacing: -1.0,
-                    ),
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Container(
+      height: 124,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  value,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: tokens.textDark,
+                    fontSize: 34,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                    letterSpacing: -1.0,
                   ),
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    change,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Text(
-              label,
-              style: GoogleFonts.plusJakartaSans(
-                color: AppColors.textDark.withValues(alpha: 0.6),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
               ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  change,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              color: tokens.textDark.withValues(alpha: 0.6),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ── OVERVIEW CARD (Donut + Legend) ───────────────────────────
@@ -429,6 +437,7 @@ class _OverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final hasData = cPct > 0 || iPct > 0 || oPct > 0;
     final displayCompleted = hasData ? cPct : 0.63;
     final displayInProgress = hasData ? iPct : 0.25;
@@ -437,10 +446,10 @@ class _OverviewCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppColors.cardBg,
+        color: tokens.cardBg,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.divider.withValues(alpha: 0.5),
+          color: tokens.divider.withValues(alpha: 0.5),
           width: 1.2,
         ),
       ),
@@ -458,9 +467,10 @@ class _OverviewCard extends StatelessWidget {
                     completed: displayCompleted,
                     inProgress: displayInProgress,
                     overdue: displayOverdue,
-                    completedColor: AppColors.mint,
-                    inProgressColor: AppColors.purple,
-                    overdueColor: Colors.white.withValues(alpha: 0.15),
+                    completedColor: tokens.mint,
+                    inProgressColor: tokens.purple,
+                    overdueColor: tokens.divider,
+                    trackColor: tokens.innerCard,
                   ),
                 ),
                 Column(
@@ -469,7 +479,7 @@ class _OverviewCard extends StatelessWidget {
                     Text(
                       '${(displayCompleted * 100).round()}%',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppColors.textPrimary,
+                        color: tokens.textPrimary,
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                         height: 1,
@@ -478,7 +488,7 @@ class _OverviewCard extends StatelessWidget {
                     Text(
                       context.translate('completed').toLowerCase(),
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppColors.textSecondary,
+                        color: tokens.textSecondary,
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
                       ),
@@ -497,19 +507,19 @@ class _OverviewCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _Legend(
-                  color: AppColors.mint,
+                  color: tokens.mint,
                   label: context.translate('completed'),
                   pct: '${(displayCompleted * 100).round()}%',
                 ),
                 const SizedBox(height: 12),
                 _Legend(
-                  color: AppColors.purple,
+                  color: tokens.purple,
                   label: context.translate('in_progress'),
                   pct: '${(displayInProgress * 100).round()}%',
                 ),
                 const SizedBox(height: 12),
                 _Legend(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: tokens.divider,
                   label: context.translate('overdue'),
                   pct: '${(displayOverdue * 100).round()}%',
                 ),
@@ -531,10 +541,11 @@ class _DonutPainter extends CustomPainter {
     required this.completedColor,
     required this.inProgressColor,
     required this.overdueColor,
+    required this.trackColor,
   });
 
   final double completed, inProgress, overdue;
-  final Color completedColor, inProgressColor, overdueColor;
+  final Color completedColor, inProgressColor, overdueColor, trackColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -546,7 +557,7 @@ class _DonutPainter extends CustomPainter {
     const startAngle = -math.pi / 2;
 
     final trackPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.04)
+      ..color = trackColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeW
       ..strokeCap = StrokeCap.round;
@@ -590,7 +601,8 @@ class _DonutPainter extends CustomPainter {
   bool shouldRepaint(_DonutPainter old) =>
       old.completed != completed ||
       old.inProgress != inProgress ||
-      old.overdue != overdue;
+      old.overdue != overdue ||
+      old.trackColor != trackColor;
 }
 
 // ── LEGEND ROW ───────────────────────────────────────────────
@@ -605,40 +617,44 @@ class _Legend extends StatelessWidget {
   final String label, pct;
 
   @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.plusJakartaSans(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Text(
-            pct,
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
             style: GoogleFonts.plusJakartaSans(
-              color: AppColors.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
+              color: tokens.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
-        ],
-      );
+        ),
+        Text(
+          pct,
+          style: GoogleFonts.plusJakartaSans(
+            color: tokens.textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 // ── PRODUCTIVITY INSIGHTS CARD ──────────────────────────────
 class _ProductivityInsightsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final n = context.watch<TasksNotifier>();
     final allTasks = n.tasks;
     final completed = n.completedTasks;
@@ -701,10 +717,10 @@ class _ProductivityInsightsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppColors.cardBg,
+        color: tokens.cardBg,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.divider.withValues(alpha: 0.5),
+          color: tokens.divider.withValues(alpha: 0.5),
           width: 1.2,
         ),
       ),
@@ -717,14 +733,14 @@ class _ProductivityInsightsCard extends StatelessWidget {
               Text(
                 context.translate('productivity_insights'),
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppColors.textPrimary,
+                  color: tokens.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               Icon(
                 Icons.insights_rounded,
-                color: AppColors.textSecondary.withValues(alpha: 0.5),
+                color: tokens.textSecondary.withValues(alpha: 0.5),
                 size: 20,
               ),
             ],
@@ -748,7 +764,7 @@ class _ProductivityInsightsCard extends StatelessWidget {
                   value: '$consistencyScore%',
                   subtitle: consistencySubtitle,
                   icon: Icons.ads_click_rounded,
-                  iconColor: AppColors.mint,
+                  iconColor: tokens.mint,
                 ),
               ),
             ],
@@ -759,7 +775,7 @@ class _ProductivityInsightsCard extends StatelessWidget {
             value: localizedProductiveDay,
             subtitle: productiveSubtitle,
             icon: Icons.calendar_today_rounded,
-            iconColor: AppColors.purple,
+            iconColor: tokens.purple,
             fullWidth: true,
           ),
         ],
@@ -785,14 +801,15 @@ class _MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.innerCard,
+        color: tokens.innerCard,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: AppColors.divider.withValues(alpha: 0.3),
+          color: tokens.divider.withValues(alpha: 0.3),
           width: 1.0,
         ),
       ),
@@ -815,7 +832,7 @@ class _MetricTile extends StatelessWidget {
                 Text(
                   label,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppColors.textSecondary,
+                    color: tokens.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -824,7 +841,7 @@ class _MetricTile extends StatelessWidget {
                 Text(
                   value,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppColors.textPrimary,
+                    color: tokens.textPrimary,
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
                   ),
@@ -833,7 +850,7 @@ class _MetricTile extends StatelessWidget {
                 Text(
                   subtitle,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppColors.textSecondary.withValues(alpha: 0.6),
+                    color: tokens.textSecondary.withValues(alpha: 0.6),
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                   ),
@@ -847,10 +864,32 @@ class _MetricTile extends StatelessWidget {
   }
 }
 
+Color _getCategoryColor(String cat, BuildContext context) {
+  final tokens = context.tokens;
+  switch (cat.toLowerCase().trim()) {
+    case 'work':
+      return tokens.purple;
+    case 'personal':
+      return tokens.mint;
+    case 'health':
+    case 'fitness':
+      return tokens.error;
+    case 'study':
+    case 'learning':
+      return tokens.yellow;
+    case 'family':
+    case 'home':
+      return tokens.gold;
+    default:
+      return tokens.mint;
+  }
+}
+
 // ── CATEGORY BREAKDOWN CARD ────────────────────────────────
 class _CategoryBreakdownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final n = context.watch<TasksNotifier>();
     final allTasks = n.tasks;
 
@@ -873,10 +912,10 @@ class _CategoryBreakdownCard extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          color: AppColors.cardBg,
+          color: tokens.cardBg,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: AppColors.divider.withValues(alpha: 0.5),
+            color: tokens.divider.withValues(alpha: 0.5),
             width: 1.2,
           ),
         ),
@@ -886,7 +925,7 @@ class _CategoryBreakdownCard extends StatelessWidget {
             Text(
               context.translate('category_progress'),
               style: GoogleFonts.plusJakartaSans(
-                color: AppColors.textPrimary,
+                color: tokens.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
               ),
@@ -895,7 +934,7 @@ class _CategoryBreakdownCard extends StatelessWidget {
             Text(
               context.translate('no_categories_yet'),
               style: GoogleFonts.plusJakartaSans(
-                color: AppColors.textSecondary,
+                color: tokens.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
@@ -912,10 +951,10 @@ class _CategoryBreakdownCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppColors.cardBg,
+        color: tokens.cardBg,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.divider.withValues(alpha: 0.5),
+          color: tokens.divider.withValues(alpha: 0.5),
           width: 1.2,
         ),
       ),
@@ -928,14 +967,14 @@ class _CategoryBreakdownCard extends StatelessWidget {
               Text(
                 context.translate('category_progress'),
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppColors.textPrimary,
+                  color: tokens.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               Icon(
                 Icons.pie_chart_outline_rounded,
-                color: AppColors.textSecondary.withValues(alpha: 0.5),
+                color: tokens.textSecondary.withValues(alpha: 0.5),
                 size: 20,
               ),
             ],
@@ -947,7 +986,7 @@ class _CategoryBreakdownCard extends StatelessWidget {
             final completed = mapCompleted[cat] ?? 0;
             final ratio = total == 0 ? 0.0 : completed / total;
             final percent = (ratio * 100).round();
-            final color = AppColors.getCategoryColor(cat);
+            final color = _getCategoryColor(cat, context);
 
             final categoryLabel = ['Work', 'Personal', 'Health', 'Study', 'Family', 'Shopping', 'General'].contains(cat)
                 ? context.translate('cat_${cat.toLowerCase()}')
@@ -969,7 +1008,7 @@ class _CategoryBreakdownCard extends StatelessWidget {
                       Text(
                         categoryLabel,
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppColors.textPrimary,
+                          color: tokens.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
@@ -977,7 +1016,7 @@ class _CategoryBreakdownCard extends StatelessWidget {
                       Text(
                         completedRatioText,
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppColors.textSecondary,
+                          color: tokens.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -990,7 +1029,7 @@ class _CategoryBreakdownCard extends StatelessWidget {
                       Container(
                         height: 6,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.05),
+                          color: tokens.innerCard,
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),
@@ -1020,6 +1059,7 @@ class _CategoryBreakdownCard extends StatelessWidget {
 class _ProcessHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final completed = context.watch<TasksNotifier>().completedTasks;
 
     final recent = completed.toList()
@@ -1031,10 +1071,10 @@ class _ProcessHistoryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppColors.cardBg,
+        color: tokens.cardBg,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.divider.withValues(alpha: 0.5),
+          color: tokens.divider.withValues(alpha: 0.5),
           width: 1.2,
         ),
       ),
@@ -1047,14 +1087,14 @@ class _ProcessHistoryCard extends StatelessWidget {
               Text(
                 context.translate('process_history'),
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppColors.textPrimary,
+                  color: tokens.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               Icon(
                 Icons.history_rounded,
-                color: AppColors.textSecondary.withValues(alpha: 0.5),
+                color: tokens.textSecondary.withValues(alpha: 0.5),
                 size: 20,
               ),
             ],
@@ -1064,7 +1104,7 @@ class _ProcessHistoryCard extends StatelessWidget {
             Text(
               context.translate('no_completed_history'),
               style: GoogleFonts.plusJakartaSans(
-                color: AppColors.textSecondary,
+                color: tokens.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
@@ -1089,12 +1129,12 @@ class _ProcessHistoryCard extends StatelessWidget {
                             width: 24,
                             height: 24,
                             decoration: BoxDecoration(
-                              color: AppColors.mint.withValues(alpha: 0.15),
+                              color: tokens.mint.withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.check_rounded,
-                              color: AppColors.mint,
+                              color: tokens.mint,
                               size: 14,
                             ),
                           ),
@@ -1102,7 +1142,7 @@ class _ProcessHistoryCard extends StatelessWidget {
                             Expanded(
                               child: Container(
                                 width: 2,
-                                color: AppColors.divider.withValues(alpha: 0.4),
+                                color: tokens.divider.withValues(alpha: 0.4),
                               ),
                             ),
                         ],
@@ -1117,7 +1157,7 @@ class _ProcessHistoryCard extends StatelessWidget {
                               Text(
                                 task.title,
                                 style: GoogleFonts.plusJakartaSans(
-                                  color: AppColors.textPrimary,
+                                  color: tokens.textPrimary,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -1128,7 +1168,7 @@ class _ProcessHistoryCard extends StatelessWidget {
                                   Text(
                                     formattedDate,
                                     style: GoogleFonts.plusJakartaSans(
-                                      color: AppColors.textSecondary,
+                                      color: tokens.textSecondary,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1138,8 +1178,8 @@ class _ProcessHistoryCard extends StatelessWidget {
                                     Container(
                                       width: 4,
                                       height: 4,
-                                      decoration: const BoxDecoration(
-                                        color: AppColors.textSecondary,
+                                      decoration: BoxDecoration(
+                                        color: tokens.textSecondary,
                                         shape: BoxShape.circle,
                                       ),
                                     ),
@@ -1157,13 +1197,13 @@ class _ProcessHistoryCard extends StatelessWidget {
                                                 vertical: 2,
                                               ),
                                               decoration: BoxDecoration(
-                                                color: AppColors.innerCard,
+                                                color: tokens.innerCard,
                                                 borderRadius: BorderRadius.circular(6),
                                               ),
                                               child: Text(
                                                 categoryLabel,
                                                 style: GoogleFonts.plusJakartaSans(
-                                                  color: AppColors.textPrimary,
+                                                  color: tokens.textPrimary,
                                                   fontSize: 9,
                                                   fontWeight: FontWeight.bold,
                                                 ),

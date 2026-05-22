@@ -10,11 +10,11 @@ import '../providers/current_task_provider.dart';
 enum _State { upcoming, overdue, completed, synced }
 
 extension _StateX on _State {
-  Color get accent => switch (this) {
-        _State.upcoming => AppColors.purple,
-        _State.overdue => AppColors.error,
-        _State.completed => AppColors.mint,
-        _State.synced => AppColors.yellow,
+  Color accent(AppThemeTokens tokens) => switch (this) {
+        _State.upcoming => tokens.purple,
+        _State.overdue => tokens.error,
+        _State.completed => tokens.mint,
+        _State.synced => tokens.yellow,
       };
 }
 
@@ -74,15 +74,15 @@ class _TaskCardState extends State<TaskCard>
       key: Key(widget.task.id),
       direction: DismissDirection.horizontal,
       background: _ActionBg(
-        color: AppColors.mint,
+        color: context.tokens.mint,
         icon: isDone
             ? Icons.remove_done_rounded
             : Icons.check_circle_outline_rounded,
         label: isDone ? 'UNDO' : 'DONE',
         alignment: AlignmentDirectional.centerStart,
       ),
-      secondaryBackground: const _ActionBg(
-        color: AppColors.error,
+      secondaryBackground: _ActionBg(
+        color: context.tokens.error,
         icon: Icons.delete_outline_rounded,
         label: 'DELETE',
         alignment: AlignmentDirectional.centerEnd,
@@ -140,9 +140,9 @@ class _Shell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardColor = _done ? const Color(0xFF070707) : const Color(0xFF0E0E0E);
-    final borderColor =
-        _done ? const Color(0xFF141414) : const Color(0xFF1C1C1C);
+    final tokens = context.tokens;
+    final cardColor = _done ? tokens.innerCard : tokens.cardBg;
+    final borderColor = tokens.divider;
 
     return Container(
       decoration: BoxDecoration(
@@ -151,7 +151,7 @@ class _Shell extends StatelessWidget {
         border: Border.all(color: borderColor, width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.light ? 0.05 : 0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -186,13 +186,13 @@ class _Shell extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: _done ? AppColors.textHint : AppColors.textPrimary,
+                      color: _done ? tokens.textHint : tokens.textPrimary,
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
                       letterSpacing: -0.3,
                       height: 1.3,
                       decoration: _done ? TextDecoration.lineThrough : null,
-                      decorationColor: AppColors.textHint,
+                      decorationColor: tokens.textHint,
                       decorationThickness: 2.0,
                     ),
                   ),
@@ -205,8 +205,8 @@ class _Shell extends StatelessWidget {
                       task.description!,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
+                      style: TextStyle(
+                        color: tokens.textSecondary,
                         fontSize: 13,
                         height: 1.4,
                       ),
@@ -221,16 +221,16 @@ class _Shell extends StatelessWidget {
                         Icons.schedule_rounded,
                         size: 13,
                         color: cs == _State.overdue
-                            ? AppColors.error
-                            : AppColors.textSecondary,
+                            ? tokens.error
+                            : tokens.textSecondary,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         DateFormat('MMM d · h:mm a').format(task.scheduledAt),
                         style: TextStyle(
                           color: cs == _State.overdue
-                              ? AppColors.error
-                              : AppColors.textSecondary,
+                              ? tokens.error
+                              : tokens.textSecondary,
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                         ),
@@ -240,16 +240,16 @@ class _Shell extends StatelessWidget {
                         Container(
                           width: 4,
                           height: 4,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: AppColors.yellow,
+                            color: tokens.yellow,
                           ),
                         ),
                         const SizedBox(width: 6),
-                        const Text(
+                        Text(
                           'Synced',
                           style: TextStyle(
-                            color: AppColors.yellow,
+                            color: tokens.yellow,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.2,
@@ -277,8 +277,9 @@ class _Orb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final isDone = cs == _State.completed;
-    final color = cs.accent;
+    final color = cs.accent(tokens);
 
     return GestureDetector(
       onTap: () {
@@ -335,7 +336,7 @@ class _CategoryTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _getCategoryColor(cat);
+    final color = _getCategoryColor(cat, context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -355,8 +356,25 @@ class _CategoryTag extends StatelessWidget {
     );
   }
 
-  Color _getCategoryColor(String cat) {
-    return AppColors.getCategoryColor(cat);
+  Color _getCategoryColor(String cat, BuildContext context) {
+    final tokens = context.tokens;
+    switch (cat.toLowerCase().trim()) {
+      case 'work':
+        return tokens.purple;
+      case 'personal':
+        return tokens.mint;
+      case 'health':
+      case 'fitness':
+        return tokens.error;
+      case 'study':
+      case 'learning':
+        return tokens.yellow;
+      case 'family':
+      case 'home':
+        return tokens.gold;
+      default:
+        return tokens.mint;
+    }
   }
 }
 
@@ -366,6 +384,7 @@ class _CloseBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
@@ -376,13 +395,13 @@ class _CloseBtn extends StatelessWidget {
         height: 28,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white.withOpacity(0.06),
+          color: tokens.textSecondary.withOpacity(0.1),
         ),
-        child: const Center(
+        child: Center(
           child: Icon(
             Icons.close_rounded,
             size: 14,
-            color: AppColors.textSecondary,
+            color: tokens.textSecondary,
           ),
         ),
       ),
@@ -469,15 +488,73 @@ class AllTaskTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final done = task.isCompleted;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final String category = task.categories.isNotEmpty ? task.categories.first.toLowerCase().trim() : '';
 
-    // Use first category color or deterministic fallback pastel color
-    final Color bg;
-    if (task.categories.isNotEmpty) {
-      bg = AppColors.getCategoryColor(task.categories.first);
+    // Deterministic background selection using pastel variants in light mode
+    Color bg;
+    if (isLight) {
+      switch (category) {
+        case 'work':
+          bg = const Color(0xFFE8DEFF);
+          break;
+        case 'personal':
+          bg = const Color(0xFFCDFAF6);
+          break;
+        case 'health':
+        case 'fitness':
+          bg = const Color(0xFFFFD6D6);
+          break;
+        case 'study':
+        case 'learning':
+          bg = const Color(0xFFFEF9D0);
+          break;
+        case 'family':
+        case 'home':
+          bg = const Color(0xFFFEF9D0);
+          break;
+        default:
+          if (task.categories.isEmpty) {
+            final idx = task.id.hashCode.abs() % 3;
+            bg = idx == 0
+                ? const Color(0xFFE8DEFF)
+                : (idx == 1 ? const Color(0xFFFEF9D0) : const Color(0xFFCDFAF6));
+          } else {
+            bg = const Color(0xFFCDFAF6);
+          }
+      }
     } else {
-      final colors = [AppColors.purple, AppColors.yellow, AppColors.mint];
-      bg = colors[task.id.hashCode.abs() % colors.length];
+      switch (category) {
+        case 'work':
+          bg = tokens.purple;
+          break;
+        case 'personal':
+          bg = tokens.mint;
+          break;
+        case 'health':
+        case 'fitness':
+          bg = tokens.error;
+          break;
+        case 'study':
+        case 'learning':
+          bg = tokens.yellow;
+          break;
+        case 'family':
+        case 'home':
+          bg = tokens.gold;
+          break;
+        default:
+          if (task.categories.isEmpty) {
+            final idx = task.id.hashCode.abs() % 3;
+            bg = idx == 0
+                ? tokens.purple
+                : (idx == 1 ? tokens.yellow : tokens.mint);
+          } else {
+            bg = tokens.mint;
+          }
+      }
     }
 
     final currentTaskNotifier = Provider.of<CurrentTaskNotifier>(context);
@@ -496,15 +573,15 @@ class AllTaskTile extends StatelessWidget {
       key: Key('all_${task.id}'),
       direction: DismissDirection.horizontal,
       background: _ActionBg(
-        color: AppColors.mint,
+        color: tokens.mint,
         icon: done
             ? Icons.remove_done_rounded
             : Icons.check_circle_outline_rounded,
         label: done ? 'UNDO' : 'DONE',
         alignment: AlignmentDirectional.centerStart,
       ),
-      secondaryBackground: const _ActionBg(
-        color: AppColors.error,
+      secondaryBackground: _ActionBg(
+        color: tokens.error,
         icon: Icons.delete_outline_rounded,
         label: 'DELETE',
         alignment: AlignmentDirectional.centerEnd,
@@ -566,8 +643,8 @@ class AllTaskTile extends StatelessWidget {
                                       ),
                                       child: Text(
                                         cat.toUpperCase(),
-                                        style: const TextStyle(
-                                          color: Colors.black,
+                                        style: TextStyle(
+                                          color: tokens.textDark,
                                           fontSize: 9,
                                           fontWeight: FontWeight.w800,
                                           letterSpacing: 0.5,
@@ -585,7 +662,7 @@ class AllTaskTile extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.black,
+                            color: tokens.textDark,
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.4,
@@ -604,7 +681,7 @@ class AllTaskTile extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Colors.black.withOpacity(0.6),
+                              color: tokens.textDark.withOpacity(0.6),
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
@@ -620,7 +697,7 @@ class AllTaskTile extends StatelessWidget {
                             Text(
                               subtitleText,
                               style: TextStyle(
-                                color: Colors.black.withOpacity(0.6),
+                                color: tokens.textDark.withOpacity(0.6),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -650,14 +727,14 @@ class AllTaskTile extends StatelessWidget {
                           CircularProgressIndicator(
                             value: progress,
                             strokeWidth: 3.5,
-                            backgroundColor: Colors.black.withOpacity(0.1),
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                                Colors.black),
+                            backgroundColor: tokens.textDark.withOpacity(0.1),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                tokens.textDark),
                           ),
                           Text(
                             '${(progress * 100).round()}%',
-                            style: const TextStyle(
-                              color: Colors.black,
+                            style: TextStyle(
+                              color: tokens.textDark,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                             ),

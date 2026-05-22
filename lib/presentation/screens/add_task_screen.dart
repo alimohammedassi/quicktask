@@ -35,10 +35,10 @@ const _kRadiusSm = 12.0;
 const _kPad = 20.0;
 const _kGap = 12.0;
 
-// Priority colors
-const _kLowColor = AppColors.mint;
-const _kMedColor = AppColors.yellow;
-const _kHighColor = AppColors.error;
+// Priority pill accent colors
+const _kLowColor = Color(0xFF3DD8C9); // mint — relaxed
+const _kMedColor = Color(0xFFF5C842); // gold — caution
+const _kHighColor = Color(0xFFEF4444); // error red — urgent
 
 // ─────────────────────────────────────────────────────────────
 // Data models
@@ -49,20 +49,17 @@ class _Cat {
   final String key;
   final String label;
   final IconData icon;
-  final Color color;
-  const _Cat(this.key, this.label, this.icon, this.color);
+  final Color Function(AppThemeTokens) colorResolver;
+  const _Cat(this.key, this.label, this.icon, this.colorResolver);
 }
 
 final _categories = [
-  const _Cat('work', 'Work', Icons.work_outline_rounded, AppColors.purple),
-  const _Cat(
-      'personal', 'Personal', Icons.person_outline_rounded, AppColors.mint),
-  const _Cat(
-      'health', 'Health', Icons.favorite_outline_rounded, AppColors.error),
-  const _Cat('study', 'Study', Icons.school_outlined, AppColors.yellow),
-  const _Cat('family', 'Family', Icons.home_outlined, AppColors.orange),
-  const _Cat(
-      'shopping', 'Shopping', Icons.shopping_bag_outlined, AppColors.pink),
+  _Cat('work', 'Work', Icons.work_outline_rounded, (t) => t.purple),
+  _Cat('personal', 'Personal', Icons.person_outline_rounded, (t) => t.mint),
+  _Cat('health', 'Health', Icons.favorite_outline_rounded, (t) => t.error),
+  _Cat('study', 'Study', Icons.school_outlined, (t) => t.yellow),
+  _Cat('family', 'Family', Icons.home_outlined, (t) => t.gold),
+  _Cat('shopping', 'Shopping', Icons.shopping_bag_outlined, (t) => t.purple),
 ];
 
 const _reminderOptions = ['5 min', '10 min', '15 min', '30 min', '1 hour'];
@@ -218,13 +215,13 @@ class _AddTaskScreenState extends State<AddTaskScreen>
       initialDate: _scheduledAt,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: _darkPickerTheme,
+      builder: _themedPickerTheme,
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_scheduledAt),
-      builder: _darkPickerTheme,
+      builder: _themedPickerTheme,
     );
     if (time == null || !mounted) return;
     HapticFeedback.lightImpact();
@@ -234,28 +231,35 @@ class _AddTaskScreenState extends State<AddTaskScreen>
     });
   }
 
-  Widget _darkPickerTheme(BuildContext ctx, Widget? child) => Theme(
-        data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: AppColors.mint,
-            onPrimary: AppColors.textDark,
-            surface: AppColors.cardBg,
-            onSurface: AppColors.textPrimary,
-          ),
-          dialogTheme: const DialogThemeData(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(24)),
-            ),
+  Widget _themedPickerTheme(BuildContext ctx, Widget? child) {
+    final tokens = context.tokens;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Theme(
+      data: (isDark ? ThemeData.dark() : ThemeData.light()).copyWith(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: tokens.mint,
+          brightness: isDark ? Brightness.dark : Brightness.light,
+          primary: tokens.mint,
+          onPrimary: tokens.textDark,
+          surface: tokens.cardBg,
+          onSurface: tokens.textPrimary,
+        ),
+        dialogTheme: DialogThemeData(
+          backgroundColor: tokens.cardBg,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(24)),
           ),
         ),
-        child: child!,
-      );
+      ),
+      child: child!,
+    );
+  }
 
   Future<void> _submit() async {
     final title = _titleCtrl.text.trim();
     if (title.isEmpty) {
       HapticFeedback.vibrate();
-      _toast(context.translate('err_enter_title'), AppColors.error);
+      _toast(context.translate('err_enter_title'), context.tokens.error);
       return;
     }
     HapticFeedback.mediumImpact();
@@ -272,7 +276,7 @@ class _AddTaskScreenState extends State<AddTaskScreen>
     } catch (e) {
       if (mounted)
         _toast('${context.translate('toast_error_creating')}: $e',
-            AppColors.error);
+            context.tokens.error);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -302,7 +306,7 @@ class _AddTaskScreenState extends State<AddTaskScreen>
         MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.tokens.background,
       // Dismiss keyboard on tap outside fields
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
@@ -497,8 +501,8 @@ class _StepBadge extends StatelessWidget {
         child: Text(
           _label,
           key: ValueKey(_label),
-          style: const TextStyle(
-            color: AppColors.textPrimary,
+          style: TextStyle(
+            color: context.tokens.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.3,
@@ -535,11 +539,11 @@ class _IconBtn extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: AppColors.cardBg,
+                  color: context.tokens.cardBg,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.divider),
+                  border: Border.all(color: context.tokens.divider),
                 ),
-                child: Icon(icon, color: AppColors.textPrimary, size: 18),
+                child: Icon(icon, color: context.tokens.textPrimary, size: 18),
               ),
             ),
           ),
@@ -559,14 +563,14 @@ class _ProgressStrip extends StatelessWidget {
         height: 3,
         child: LayoutBuilder(
           builder: (_, c) => Stack(children: [
-            Container(color: AppColors.divider),
+            Container(color: context.tokens.divider),
             AnimatedContainer(
               duration: const Duration(milliseconds: 500),
               curve: Curves.easeOutCubic,
               width: c.maxWidth * progress,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.mint, AppColors.purple],
+                gradient: LinearGradient(
+                  colors: [context.tokens.mint, context.tokens.purple],
                 ),
                 borderRadius: BorderRadius.circular(2),
               ),
@@ -588,9 +592,9 @@ class _Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: AppColors.cardBg,
+          color: context.tokens.cardBg,
           borderRadius: BorderRadius.circular(_kRadius),
-          border: Border.all(color: AppColors.divider),
+          border: Border.all(color: context.tokens.divider),
         ),
         padding: padding,
         child: Column(
@@ -613,12 +617,12 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) => Row(
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 13, color: AppColors.mint),
+            Icon(icon, size: 13, color: context.tokens.mint),
             const SizedBox(width: 6),
           ],
           Text(text,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
+              style: TextStyle(
+                color: context.tokens.textSecondary,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.8,
@@ -711,23 +715,23 @@ class _VoiceHeroState extends State<_VoiceHero> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final isAr = _locale == TtsLocale.arabic;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
-        color: AppColors.cardBg,
+        color: tokens.cardBg,
         borderRadius: BorderRadius.circular(_kRadius),
         border: Border.all(
-          color: _listening
-              ? AppColors.mint.withValues(alpha: 0.6)
-              : AppColors.divider,
+          color:
+              _listening ? tokens.mint.withValues(alpha: 0.6) : tokens.divider,
           width: _listening ? 1.5 : 1.0,
         ),
         boxShadow: _listening
             ? [
                 BoxShadow(
-                  color: AppColors.mint.withValues(alpha: 0.14),
+                  color: tokens.mint.withValues(alpha: 0.14),
                   blurRadius: 28,
                   spreadRadius: -4,
                   offset: const Offset(0, 10),
@@ -741,7 +745,7 @@ class _VoiceHeroState extends State<_VoiceHero> with TickerProviderStateMixin {
           onTap: _toggle,
           onLongPress: _switchLocale,
           borderRadius: BorderRadius.circular(_kRadius),
-          splashColor: AppColors.mint.withValues(alpha: 0.08),
+          splashColor: tokens.mint.withValues(alpha: 0.08),
           highlightColor: Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -761,17 +765,15 @@ class _VoiceHeroState extends State<_VoiceHero> with TickerProviderStateMixin {
                       height: 52,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color:
-                            _listening ? AppColors.mint : AppColors.innerCard,
+                        color: _listening ? tokens.mint : tokens.innerCard,
                         border: Border.all(
-                          color:
-                              _listening ? AppColors.mint : AppColors.divider,
+                          color: _listening ? tokens.mint : tokens.divider,
                           width: 1.5,
                         ),
                         boxShadow: _listening
                             ? [
                                 BoxShadow(
-                                  color: AppColors.mint.withValues(alpha: 0.4),
+                                  color: tokens.mint.withValues(alpha: 0.4),
                                   blurRadius: 18,
                                   spreadRadius: -2,
                                 )
@@ -780,9 +782,8 @@ class _VoiceHeroState extends State<_VoiceHero> with TickerProviderStateMixin {
                       ),
                       child: Icon(
                         _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                        color: _listening
-                            ? AppColors.textDark
-                            : AppColors.textSecondary,
+                        color:
+                            _listening ? tokens.textDark : tokens.textSecondary,
                         size: 22,
                       ),
                     ),
@@ -811,9 +812,8 @@ class _VoiceHeroState extends State<_VoiceHero> with TickerProviderStateMixin {
                               : context.translate('tap_to_speak'),
                           key: ValueKey(_listening),
                           style: TextStyle(
-                            color: _listening
-                                ? AppColors.mint
-                                : AppColors.textPrimary,
+                            color:
+                                _listening ? tokens.mint : tokens.textPrimary,
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                           ),
@@ -833,8 +833,8 @@ class _VoiceHeroState extends State<_VoiceHero> with TickerProviderStateMixin {
                                 padding: const EdgeInsets.only(top: 3),
                                 child: Text(
                                   context.translate('hold_to_switch_lang'),
-                                  style: const TextStyle(
-                                    color: AppColors.textHint,
+                                  style: TextStyle(
+                                    color: tokens.textHint,
                                     fontSize: 11,
                                   ),
                                 ),
@@ -857,43 +857,46 @@ class _StatusBadge extends StatelessWidget {
   final bool listening;
 
   @override
-  Widget build(BuildContext context) => AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: (listening ? AppColors.mint : AppColors.purple)
-              .withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: (listening ? AppColors.mint : AppColors.purple)
-                .withValues(alpha: 0.3),
-          ),
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color:
+            (listening ? tokens.mint : tokens.purple).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color:
+              (listening ? tokens.mint : tokens.purple).withValues(alpha: 0.3),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (listening)
-              Container(
-                width: 5,
-                height: 5,
-                margin: const EdgeInsets.only(right: 4),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.mint,
-                ),
-              ),
-            Text(
-              listening ? 'LIVE' : 'VOICE',
-              style: TextStyle(
-                color: listening ? AppColors.mint : AppColors.purple,
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (listening)
+            Container(
+              width: 5,
+              height: 5,
+              margin: const EdgeInsets.only(right: 4),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: tokens.mint,
               ),
             ),
-          ],
-        ),
-      );
+          Text(
+            listening ? 'LIVE' : 'VOICE',
+            style: TextStyle(
+              color: listening ? tokens.mint : tokens.purple,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _LangToggle extends StatelessWidget {
@@ -902,28 +905,31 @@ class _LangToggle extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          width: 44,
-          height: 28,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: AppColors.innerCard,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.divider),
-          ),
-          child: Text(
-            isAr ? 'AR' : 'EN',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 44,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: tokens.innerCard,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: tokens.divider),
+        ),
+        child: Text(
+          isAr ? 'AR' : 'EN',
+          style: TextStyle(
+            color: tokens.textSecondary,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _WaveBar extends StatelessWidget {
@@ -932,6 +938,7 @@ class _WaveBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     const bars = [5.0, 11.0, 8.0, 14.0, 7.0, 10.0, 5.0, 12.0, 6.0];
     return SizedBox(
       height: 18,
@@ -950,7 +957,7 @@ class _WaveBar extends StatelessWidget {
                   width: 3,
                   height: bars[i] * scale,
                   decoration: BoxDecoration(
-                    color: AppColors.mint.withValues(alpha: 0.75),
+                    color: tokens.mint.withValues(alpha: 0.75),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 );
@@ -972,6 +979,7 @@ class _TitleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final charCount = titleCtrl.text.length;
     return _Card(
       children: [
@@ -1006,7 +1014,7 @@ class _TitleCard extends StatelessWidget {
             Text(
               '$charCount / 80',
               style: TextStyle(
-                color: charCount > 70 ? AppColors.yellow : AppColors.textHint,
+                color: charCount > 70 ? tokens.yellow : tokens.textHint,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
@@ -1026,22 +1034,25 @@ class _TitleCard extends StatelessWidget {
 
 class _RequiredBadge extends StatelessWidget {
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: AppColors.error.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(4),
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: tokens.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        'REQUIRED',
+        style: TextStyle(
+          color: tokens.error,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
         ),
-        child: const Text(
-          'REQUIRED',
-          style: TextStyle(
-            color: AppColors.error,
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-          ),
-        ),
-      );
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1068,48 +1079,50 @@ class _DarkField extends StatelessWidget {
   final int? maxLength;
 
   @override
-  Widget build(BuildContext context) => TextField(
-        controller: controller,
-        maxLines: maxLines,
-        maxLength: maxLength,
-        textInputAction: textInputAction,
-        autofocus: autofocus,
-        buildCounter: maxLength != null
-            ? (_, {required currentLength, required isFocused, maxLength}) =>
-                null
-            : null,
-        style: TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: fontSize,
-          fontWeight: fontWeight,
-          height: 1.5,
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      maxLength: maxLength,
+      textInputAction: textInputAction,
+      autofocus: autofocus,
+      buildCounter: maxLength != null
+          ? (_, {required currentLength, required isFocused, maxLength}) => null
+          : null,
+      style: TextStyle(
+        color: tokens.textPrimary,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        height: 1.5,
+      ),
+      cursorColor: tokens.mint,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(
+          color: tokens.textHint,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
         ),
-        cursorColor: AppColors.mint,
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(
-            color: AppColors.textHint,
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-          ),
-          filled: true,
-          fillColor: AppColors.innerCard,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(_kRadiusSm),
-            borderSide: const BorderSide(color: AppColors.divider),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(_kRadiusSm),
-            borderSide: const BorderSide(color: AppColors.divider),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(_kRadiusSm),
-            borderSide: const BorderSide(color: AppColors.mint, width: 1.5),
-          ),
+        filled: true,
+        fillColor: tokens.innerCard,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_kRadiusSm),
+          borderSide: BorderSide(color: tokens.divider),
         ),
-      );
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_kRadiusSm),
+          borderSide: BorderSide(color: tokens.divider),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_kRadiusSm),
+          borderSide: BorderSide(color: tokens.mint, width: 1.5),
+        ),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1146,6 +1159,7 @@ class _WhenCardState extends State<_WhenCard> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final langCode = Localizations.localeOf(context).languageCode;
     return _Card(children: [
       _SectionLabel('SCHEDULE', icon: Icons.calendar_today_outlined),
@@ -1157,9 +1171,9 @@ class _WhenCardState extends State<_WhenCard> {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.innerCard,
+            color: tokens.innerCard,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.divider),
+            border: Border.all(color: tokens.divider),
           ),
           child: Row(children: [
             // Date
@@ -1168,12 +1182,11 @@ class _WhenCardState extends State<_WhenCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      const Icon(Icons.event_outlined,
-                          size: 11, color: AppColors.mint),
+                      Icon(Icons.event_outlined, size: 11, color: tokens.mint),
                       const SizedBox(width: 4),
-                      const Text('DATE',
+                      Text('DATE',
                           style: TextStyle(
-                            color: AppColors.textHint,
+                            color: tokens.textHint,
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.8,
@@ -1181,15 +1194,15 @@ class _WhenCardState extends State<_WhenCard> {
                     ]),
                     const SizedBox(height: 5),
                     Text(widget.dateLabel,
-                        style: const TextStyle(
-                          color: AppColors.mint,
+                        style: TextStyle(
+                          color: tokens.mint,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         )),
                   ]),
             ),
             // Divider
-            Container(width: 1, height: 36, color: AppColors.divider),
+            Container(width: 1, height: 36, color: tokens.divider),
             const SizedBox(width: 16),
             // Time
             Expanded(
@@ -1197,12 +1210,12 @@ class _WhenCardState extends State<_WhenCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      const Icon(Icons.access_time_rounded,
-                          size: 11, color: AppColors.purple),
+                      Icon(Icons.access_time_rounded,
+                          size: 11, color: tokens.purple),
                       const SizedBox(width: 4),
-                      const Text('TIME',
+                      Text('TIME',
                           style: TextStyle(
-                            color: AppColors.textHint,
+                            color: tokens.textHint,
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.8,
@@ -1211,8 +1224,8 @@ class _WhenCardState extends State<_WhenCard> {
                     const SizedBox(height: 5),
                     Text(
                       DateFormat('h:mm a', langCode).format(widget.scheduledAt),
-                      style: const TextStyle(
-                        color: AppColors.purple,
+                      style: TextStyle(
+                        color: tokens.purple,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1220,17 +1233,16 @@ class _WhenCardState extends State<_WhenCard> {
                   ]),
             ),
             // Edit caret
-            const Icon(Icons.edit_outlined,
-                size: 14, color: AppColors.textHint),
+            Icon(Icons.edit_outlined, size: 14, color: tokens.textHint),
           ]),
         ),
       ),
       const SizedBox(height: 14),
 
       // Quick picks — human-readable labels
-      const Text('QUICK SCHEDULE',
+      Text('QUICK SCHEDULE',
           style: TextStyle(
-            color: AppColors.textHint,
+            color: tokens.textHint,
             fontSize: 9,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.8,
@@ -1269,38 +1281,39 @@ class _QuickChip extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppColors.mint.withValues(alpha: 0.1)
-                : AppColors.innerCard,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected ? AppColors.mint : AppColors.divider,
-              width: selected ? 1.5 : 1.0,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon,
-                  size: 11,
-                  color: selected ? AppColors.mint : AppColors.textHint),
-              const SizedBox(width: 5),
-              Text(label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: selected ? AppColors.mint : AppColors.textSecondary,
-                  )),
-            ],
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color:
+              selected ? tokens.mint.withValues(alpha: 0.1) : tokens.innerCard,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? tokens.mint : tokens.divider,
+            width: selected ? 1.5 : 1.0,
           ),
         ),
-      );
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 11, color: selected ? tokens.mint : tokens.textHint),
+            const SizedBox(width: 5),
+            Text(label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? tokens.mint : tokens.textSecondary,
+                )),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1312,38 +1325,41 @@ class _PriorityCard extends StatelessWidget {
   final void Function(_Priority) onChange;
 
   @override
-  Widget build(BuildContext context) => _Card(children: [
-        _SectionLabel('PRIORITY', icon: Icons.flag_outlined),
-        const SizedBox(height: 12),
-        Row(children: [
-          _PrioTile(
-            label: 'Low',
-            icon: Icons.south_rounded,
-            desc: 'Whenever',
-            color: _kLowColor,
-            selected: priority == _Priority.low,
-            onTap: () => onChange(_Priority.low),
-          ),
-          const SizedBox(width: 8),
-          _PrioTile(
-            label: 'Medium',
-            icon: Icons.remove_rounded,
-            desc: 'Important',
-            color: _kMedColor,
-            selected: priority == _Priority.medium,
-            onTap: () => onChange(_Priority.medium),
-          ),
-          const SizedBox(width: 8),
-          _PrioTile(
-            label: 'High',
-            icon: Icons.north_rounded,
-            desc: 'Urgent',
-            color: _kHighColor,
-            selected: priority == _Priority.high,
-            onTap: () => onChange(_Priority.high),
-          ),
-        ]),
-      ]);
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return _Card(children: [
+      _SectionLabel('PRIORITY', icon: Icons.flag_outlined),
+      const SizedBox(height: 12),
+      Row(children: [
+        _PrioTile(
+          label: 'Low',
+          icon: Icons.south_rounded,
+          desc: 'Whenever',
+          color: tokens.mint,
+          selected: priority == _Priority.low,
+          onTap: () => onChange(_Priority.low),
+        ),
+        const SizedBox(width: 8),
+        _PrioTile(
+          label: 'Medium',
+          icon: Icons.remove_rounded,
+          desc: 'Important',
+          color: tokens.gold,
+          selected: priority == _Priority.medium,
+          onTap: () => onChange(_Priority.medium),
+        ),
+        const SizedBox(width: 8),
+        _PrioTile(
+          label: 'High',
+          icon: Icons.north_rounded,
+          desc: 'Urgent',
+          color: tokens.error,
+          selected: priority == _Priority.high,
+          onTap: () => onChange(_Priority.high),
+        ),
+      ]),
+    ]);
+  }
 }
 
 class _PrioTile extends StatelessWidget {
@@ -1362,56 +1378,57 @@ class _PrioTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Expanded(
-        child: GestureDetector(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-            decoration: BoxDecoration(
-              color:
-                  selected ? color.withValues(alpha: 0.1) : AppColors.innerCard,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: selected ? color : AppColors.divider,
-                width: selected ? 1.5 : 1.0,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Color dot + icon
-                Row(children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: color,
-                    ),
-                  ),
-                  const Spacer(),
-                  Icon(icon,
-                      size: 14, color: selected ? color : AppColors.textHint),
-                ]),
-                const SizedBox(height: 8),
-                Text(label,
-                    style: TextStyle(
-                      color: selected ? color : AppColors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    )),
-                const SizedBox(height: 2),
-                Text(desc,
-                    style: const TextStyle(
-                      color: AppColors.textHint,
-                      fontSize: 10,
-                    )),
-              ],
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          decoration: BoxDecoration(
+            color: selected ? color.withValues(alpha: 0.1) : tokens.innerCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? color : tokens.divider,
+              width: selected ? 1.5 : 1.0,
             ),
           ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Color dot + icon
+              Row(children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color,
+                  ),
+                ),
+                const Spacer(),
+                Icon(icon, size: 14, color: selected ? color : tokens.textHint),
+              ]),
+              const SizedBox(height: 8),
+              Text(label,
+                  style: TextStyle(
+                    color: selected ? color : tokens.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  )),
+              const SizedBox(height: 2),
+              Text(desc,
+                  style: TextStyle(
+                    color: tokens.textHint,
+                    fontSize: 10,
+                  )),
+            ],
+          ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1454,36 +1471,38 @@ class _CatTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          decoration: BoxDecoration(
-            color: selected
-                ? cat.color.withValues(alpha: 0.12)
-                : AppColors.innerCard,
-            borderRadius: BorderRadius.circular(_kRadiusSm),
-            border: Border.all(
-              color: selected ? cat.color : AppColors.divider,
-              width: selected ? 1.5 : 1.0,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(cat.icon,
-                  size: 18, color: selected ? cat.color : AppColors.textHint),
-              const SizedBox(height: 4),
-              Text(cat.label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: selected ? cat.color : AppColors.textSecondary,
-                  )),
-            ],
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final catColor = cat.colorResolver(tokens);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        decoration: BoxDecoration(
+          color: selected ? catColor.withValues(alpha: 0.12) : tokens.innerCard,
+          borderRadius: BorderRadius.circular(_kRadiusSm),
+          border: Border.all(
+            color: selected ? catColor : tokens.divider,
+            width: selected ? 1.5 : 1.0,
           ),
         ),
-      );
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(cat.icon,
+                size: 18, color: selected ? catColor : tokens.textHint),
+            const SizedBox(height: 4),
+            Text(cat.label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? catColor : tokens.textSecondary,
+                )),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1506,73 +1525,76 @@ class _SettingsCard extends StatelessWidget {
   final String reminderLabel;
 
   @override
-  Widget build(BuildContext context) => _Card(
-        padding: EdgeInsets.zero,
-        children: [
-          // ── Header (always visible) ───────────────────
-          GestureDetector(
-            onTap: onToggleExpand,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.all(_kPad),
-              child: Row(children: [
-                _SectionLabel('MORE OPTIONS', icon: Icons.tune_rounded),
-                const Spacer(),
-                // Summary when collapsed
-                if (!expanded)
-                  _SettingsSummary(
-                      calSync: calSync, reminderLabel: reminderLabel),
-                const SizedBox(width: 8),
-                AnimatedRotation(
-                  duration: const Duration(milliseconds: 250),
-                  turns: expanded ? 0.5 : 0,
-                  child: const Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    size: 18,
-                    color: AppColors.textHint,
-                  ),
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return _Card(
+      padding: EdgeInsets.zero,
+      children: [
+        // ── Header (always visible) ───────────────────
+        GestureDetector(
+          onTap: onToggleExpand,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.all(_kPad),
+            child: Row(children: [
+              _SectionLabel('MORE OPTIONS', icon: Icons.tune_rounded),
+              const Spacer(),
+              // Summary when collapsed
+              if (!expanded)
+                _SettingsSummary(
+                    calSync: calSync, reminderLabel: reminderLabel),
+              const SizedBox(width: 8),
+              AnimatedRotation(
+                duration: const Duration(milliseconds: 250),
+                turns: expanded ? 0.5 : 0,
+                child: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 18,
+                  color: tokens.textHint,
                 ),
-              ]),
-            ),
+              ),
+            ]),
           ),
+        ),
 
-          // ── Expandable body ───────────────────────────
-          AnimatedCrossFade(
-            duration: const Duration(milliseconds: 280),
-            sizeCurve: Curves.easeOutCubic,
-            firstCurve: Curves.easeOut,
-            secondCurve: Curves.easeIn,
-            crossFadeState:
-                expanded ? CrossFadeState.showFirst : CrossFadeState.showSecond,
-            firstChild: Padding(
-              padding: const EdgeInsets.fromLTRB(_kPad, 0, _kPad, _kPad),
-              child: Column(children: [
-                const Divider(color: AppColors.divider, height: 1),
-                const SizedBox(height: 12),
-                _SettingRow(
-                  icon: Icons.notifications_outlined,
-                  iconColor: AppColors.purple,
-                  label: 'Reminder',
-                  value: reminderLabel,
-                  valueColor: AppColors.purple,
-                  onTap: onReminderTap,
-                ),
-                const Divider(color: AppColors.divider, height: 1),
-                _SettingRow(
-                  icon: Icons.calendar_month_outlined,
-                  iconColor: calSync ? AppColors.mint : AppColors.textHint,
-                  label: 'Google Calendar',
-                  value: calSync ? 'On' : 'Off',
-                  valueColor: calSync ? AppColors.mint : AppColors.textHint,
-                  onTap: onCalTap,
-                  trailing: _ToggleSwitch(value: calSync, onTap: onCalTap),
-                ),
-              ]),
-            ),
-            secondChild: const SizedBox(width: double.infinity),
+        // ── Expandable body ───────────────────────────
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 280),
+          sizeCurve: Curves.easeOutCubic,
+          firstCurve: Curves.easeOut,
+          secondCurve: Curves.easeIn,
+          crossFadeState:
+              expanded ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+          firstChild: Padding(
+            padding: const EdgeInsets.fromLTRB(_kPad, 0, _kPad, _kPad),
+            child: Column(children: [
+              Divider(color: tokens.divider, height: 1),
+              const SizedBox(height: 12),
+              _SettingRow(
+                icon: Icons.notifications_outlined,
+                iconColor: tokens.purple,
+                label: 'Reminder',
+                value: reminderLabel,
+                valueColor: tokens.purple,
+                onTap: onReminderTap,
+              ),
+              Divider(color: tokens.divider, height: 1),
+              _SettingRow(
+                icon: Icons.calendar_month_outlined,
+                iconColor: calSync ? tokens.mint : tokens.textHint,
+                label: 'Google Calendar',
+                value: calSync ? 'On' : 'Off',
+                valueColor: calSync ? tokens.mint : tokens.textHint,
+                onTap: onCalTap,
+                trailing: _ToggleSwitch(value: calSync, onTap: onCalTap),
+              ),
+            ]),
           ),
-        ],
-      );
+          secondChild: const SizedBox(width: double.infinity),
+        ),
+      ],
+    );
+  }
 }
 
 class _SettingsSummary extends StatelessWidget {
@@ -1581,36 +1603,38 @@ class _SettingsSummary extends StatelessWidget {
   final String reminderLabel;
 
   @override
-  Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.innerCard,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppColors.divider),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.notifications_outlined,
-                  size: 10, color: AppColors.textHint),
-              const SizedBox(width: 3),
-              Text(reminderLabel,
-                  style:
-                      const TextStyle(color: AppColors.textHint, fontSize: 10)),
-            ]),
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: tokens.innerCard,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: tokens.divider),
           ),
-          const SizedBox(width: 6),
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: calSync ? AppColors.mint : AppColors.textHint,
-            ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.notifications_outlined,
+                size: 10, color: tokens.textHint),
+            const SizedBox(width: 3),
+            Text(reminderLabel,
+                style: TextStyle(color: tokens.textHint, fontSize: 10)),
+          ]),
+        ),
+        const SizedBox(width: 6),
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: calSync ? tokens.mint : tokens.textHint,
           ),
-        ],
-      );
+        ),
+      ],
+    );
+  }
 }
 
 class _SettingRow extends StatelessWidget {
@@ -1631,47 +1655,50 @@ class _SettingRow extends StatelessWidget {
   final Widget? trailing;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          height: 56,
-          child: Row(children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 17, color: iconColor),
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        height: 56,
+        child: Row(children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(label,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14,
+            child: Icon(icon, size: 17, color: iconColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(label,
+                style: TextStyle(
+                  color: tokens.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                )),
+          ),
+          if (trailing != null)
+            trailing!
+          else
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(value,
+                  style: TextStyle(
+                    color: valueColor ?? tokens.textSecondary,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   )),
-            ),
-            if (trailing != null)
-              trailing!
-            else
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(value,
-                    style: TextStyle(
-                      color: valueColor ?? AppColors.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    )),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right_rounded,
-                    size: 16, color: AppColors.textHint),
-              ]),
-          ]),
-        ),
-      );
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded,
+                  size: 16, color: tokens.textHint),
+            ]),
+        ]),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1683,45 +1710,47 @@ class _ToggleSwitch extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-        label: value ? 'Enabled' : 'Disabled',
-        toggled: value,
-        child: GestureDetector(
-          onTap: onTap,
-          child: AnimatedContainer(
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Semantics(
+      label: value ? 'Enabled' : 'Disabled',
+      toggled: value,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 46,
+          height: 28,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: value ? tokens.mint : tokens.innerCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: value ? tokens.mint : tokens.divider),
+          ),
+          child: AnimatedAlign(
             duration: const Duration(milliseconds: 200),
-            width: 46,
-            height: 28,
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: value ? AppColors.mint : AppColors.innerCard,
-              borderRadius: BorderRadius.circular(14),
-              border:
-                  Border.all(color: value ? AppColors.mint : AppColors.divider),
-            ),
-            child: AnimatedAlign(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-              child: Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: value ? AppColors.textDark : AppColors.textHint,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
+            curve: Curves.easeInOut,
+            alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: value ? tokens.textDark : tokens.textHint,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1741,24 +1770,27 @@ class _CtaBar extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.background.withValues(alpha: 0.93),
-              border: const Border(top: BorderSide(color: AppColors.divider)),
-            ),
-            padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPad + 16),
-            child: _SubmitBtn(
-              isSubmitting: isSubmitting,
-              canSubmit: canSubmit,
-              hint: hint,
-              onTap: onTap,
-            ),
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          decoration: BoxDecoration(
+            color: tokens.background.withValues(alpha: 0.93),
+            border: Border(top: BorderSide(color: tokens.divider)),
+          ),
+          padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPad + 16),
+          child: _SubmitBtn(
+            isSubmitting: isSubmitting,
+            canSubmit: canSubmit,
+            hint: hint,
+            onTap: onTap,
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _SubmitBtn extends StatefulWidget {
@@ -1801,6 +1833,7 @@ class _SubmitBtnState extends State<_SubmitBtn>
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final disabled = !widget.canSubmit;
     return Semantics(
       button: true,
@@ -1821,23 +1854,26 @@ class _SubmitBtnState extends State<_SubmitBtn>
             duration: const Duration(milliseconds: 250),
             height: 56,
             decoration: BoxDecoration(
-              color: disabled ? AppColors.innerCard : null,
+              color: disabled ? tokens.innerCard : null,
               gradient: disabled
                   ? null
-                  : const LinearGradient(
-                      colors: [AppColors.mint, Color(0xFF20A99B)],
+                  : LinearGradient(
+                      colors: [
+                        tokens.mint,
+                        Color.lerp(tokens.mint, Colors.black, 0.15)!,
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: disabled ? AppColors.divider : Colors.transparent,
+                color: disabled ? tokens.divider : Colors.transparent,
               ),
               boxShadow: disabled
                   ? null
                   : [
                       BoxShadow(
-                        color: AppColors.mint.withValues(alpha: 0.32),
+                        color: tokens.mint.withValues(alpha: 0.32),
                         blurRadius: 22,
                         offset: const Offset(0, 7),
                       ),
@@ -1850,13 +1886,13 @@ class _SubmitBtnState extends State<_SubmitBtn>
                 child: ScaleTransition(scale: anim, child: child),
               ),
               child: widget.isSubmitting
-                  ? const Center(
-                      key: ValueKey('loading'),
+                  ? Center(
+                      key: const ValueKey('loading'),
                       child: SizedBox(
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(
-                          color: AppColors.textDark,
+                          color: tokens.textDark,
                           strokeWidth: 2.5,
                         ),
                       ),
@@ -1870,18 +1906,15 @@ class _SubmitBtnState extends State<_SubmitBtn>
                             disabled
                                 ? Icons.edit_note_rounded
                                 : Icons.check_rounded,
-                            color: disabled
-                                ? AppColors.textHint
-                                : AppColors.textDark,
+                            color: disabled ? tokens.textHint : tokens.textDark,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             widget.hint,
                             style: TextStyle(
-                              color: disabled
-                                  ? AppColors.textHint
-                                  : AppColors.textDark,
+                              color:
+                                  disabled ? tokens.textHint : tokens.textDark,
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.2,

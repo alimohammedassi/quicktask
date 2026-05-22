@@ -12,6 +12,7 @@
 //  9. Loading state disables sign-in button with clear visual feedback
 // 10. Error snackbar accessible via assertiveness
 // 11. Fully localized (AR, EN, DE, FR) with dynamic language switcher
+// 12. Fully theme-aware with dynamic dark/light tokens
 
 import 'dart:math' as math;
 import 'dart:ui';
@@ -24,17 +25,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/localization/locale_provider.dart';
 import '../../../../core/localization/l10n.dart';
-
-// ─── Design tokens ────────────────────────────────────────────────────────────
-const _kBg = Color(0xFF080A12);
-const _kCard = Color(0xFF0F1320);
-const _kBorder = Color(0xFF1E2440);
-const _kPrimary = Color(0xFF6C63FF); // violet
-const _kAccent = Color(0xFF3DD8C9); // teal
-const _kGold = Color(0xFFF5C842); // gold
-const _kTextPrime = Color(0xFFF0F2FF);
-const _kTextSecond = Color(0xFF7B82A8);
-const _kTextHint = Color(0xFF3E4466);
+import '../../../../core/providers/theme_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -106,18 +97,21 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final isDark = themeNotifier.isDark;
     final isLoading = context.watch<AuthNotifier>().state is AuthLoading;
     final size = MediaQuery.of(context).size;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
       child: Scaffold(
-        backgroundColor: _kBg,
+        backgroundColor: tokens.background,
         body: Stack(
           fit: StackFit.expand,
           children: [
             // Animated ambient background
-            _AnimatedOrbs(floatAnim: _floatCtrl, size: size),
+            _AnimatedOrbs(floatAnim: _floatCtrl, size: size, tokens: tokens, isDark: isDark),
 
             // Blur veil
             BackdropFilter(
@@ -126,11 +120,11 @@ class _LoginScreenState extends State<LoginScreen>
             ),
 
             // Curved background waves
-            _BackgroundWaves(floatAnim: _floatCtrl),
+            _BackgroundWaves(floatAnim: _floatCtrl, tokens: tokens, isDark: isDark),
 
             // Noise grain
             Opacity(
-              opacity: 0.03,
+              opacity: isDark ? 0.03 : 0.025,
               child: CustomPaint(painter: _NoisePainter()),
             ),
 
@@ -153,11 +147,11 @@ class _LoginScreenState extends State<LoginScreen>
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             const Spacer(flex: 3),
-                            _buildBranding(),
+                            _buildBranding(tokens, isDark),
                             const Spacer(flex: 2),
-                            _buildGlassCard(isLoading),
+                            _buildGlassCard(tokens, isDark, isLoading),
                             const Spacer(flex: 2),
-                            _buildFooter(),
+                            _buildFooter(tokens),
                             const SizedBox(height: 24),
                           ],
                         ),
@@ -173,8 +167,8 @@ class _LoginScreenState extends State<LoginScreen>
               top: 16,
               right: context.isRtl ? null : 16,
               left: context.isRtl ? 16 : null,
-              child: const SafeArea(
-                child: _LanguageSwitcher(),
+              child: SafeArea(
+                child: _LanguageSwitcher(tokens: tokens),
               ),
             ),
           ],
@@ -185,16 +179,18 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ─── Branding ──────────────────────────────────────────────────────────────
 
-  Widget _buildBranding() {
+  Widget _buildBranding(AppThemeTokens tokens, bool isDark) {
     return Column(
       children: [
         // Title gradient
         ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFFB8B0FF), Color(0xFF6C63FF), Color(0xFF3DD8C9)],
+          shaderCallback: (bounds) => LinearGradient(
+            colors: isDark
+                ? [const Color(0xFFB8B0FF), const Color(0xFF6C63FF), const Color(0xFF3DD8C9)]
+                : [const Color(0xFF7C5CBF), const Color(0xFF6C63FF), const Color(0xFF2EC4B6)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            stops: [0.0, 0.5, 1.0],
+            stops: const [0.0, 0.5, 1.0],
           ).createShader(bounds),
           child: Text(
             context.translate('quiktask'),
@@ -212,9 +208,9 @@ class _LoginScreenState extends State<LoginScreen>
         // Tagline — no dots, no emoji, real copy
         Text(
           context.translate('app_tagline'),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
-            color: _kTextSecond,
+            color: tokens.textSecondary,
             fontWeight: FontWeight.w400,
             letterSpacing: 0.1,
             height: 1.5,
@@ -227,7 +223,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ─── Glass Card ────────────────────────────────────────────────────────────
 
-  Widget _buildGlassCard(bool isLoading) {
+  Widget _buildGlassCard(AppThemeTokens tokens, bool isDark, bool isLoading) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(28),
       child: BackdropFilter(
@@ -236,21 +232,21 @@ class _LoginScreenState extends State<LoginScreen>
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
           decoration: BoxDecoration(
-            color: _kCard.withValues(alpha: 0.85),
+            color: tokens.cardBg.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: _kBorder.withValues(alpha: 0.8),
+              color: tokens.divider.withValues(alpha: 0.8),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
+                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
                 blurRadius: 40,
                 spreadRadius: -8,
                 offset: const Offset(0, 20),
               ),
               BoxShadow(
-                color: _kPrimary.withValues(alpha: 0.06),
+                color: tokens.purple.withValues(alpha: 0.06),
                 blurRadius: 60,
                 offset: const Offset(0, 8),
               ),
@@ -260,17 +256,17 @@ class _LoginScreenState extends State<LoginScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Card header with time-aware greeting ────────────────────
-              _CardHeader(),
+              _CardHeader(tokens: tokens),
 
               const SizedBox(height: 24),
 
               // ── What you get — 3 value props ────────────────────────────
-              const _ValueProps(),
+              _ValueProps(tokens: tokens),
 
               const SizedBox(height: 28),
 
               // ── Divider ──────────────────────────────────────────────────
-              Container(height: 1, color: _kBorder),
+              Container(height: 1, color: tokens.divider),
 
               const SizedBox(height: 28),
 
@@ -302,17 +298,17 @@ class _LoginScreenState extends State<LoginScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.lock_outline_rounded,
                     size: 12,
-                    color: _kTextHint,
+                    color: tokens.textHint,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     context.translate('privacy_note'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: _kTextHint,
+                      color: tokens.textHint,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -327,7 +323,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ─── Footer ────────────────────────────────────────────────────────────────
 
-  Widget _buildFooter() {
+  Widget _buildFooter(AppThemeTokens tokens) {
     return Column(
       children: [
         // Trust strip — platform logos replaced by honest copy
@@ -337,13 +333,14 @@ class _LoginScreenState extends State<LoginScreen>
             _TrustBadge(
               icon: Icons.calendar_month_outlined,
               label: context.translate('google_calendar'),
+              tokens: tokens,
             ),
             const SizedBox(width: 6),
             Container(
               width: 3,
               height: 3,
-              decoration: const BoxDecoration(
-                color: _kTextHint,
+              decoration: BoxDecoration(
+                color: tokens.textHint,
                 shape: BoxShape.circle,
               ),
             ),
@@ -351,13 +348,14 @@ class _LoginScreenState extends State<LoginScreen>
             _TrustBadge(
               icon: Icons.notifications_none_rounded,
               label: context.translate('smart_reminders'),
+              tokens: tokens,
             ),
             const SizedBox(width: 6),
             Container(
               width: 3,
               height: 3,
-              decoration: const BoxDecoration(
-                color: _kTextHint,
+              decoration: BoxDecoration(
+                color: tokens.textHint,
                 shape: BoxShape.circle,
               ),
             ),
@@ -365,6 +363,7 @@ class _LoginScreenState extends State<LoginScreen>
             _TrustBadge(
               icon: Icons.translate_rounded,
               label: context.translate('multi_language'),
+              tokens: tokens,
             ),
           ],
         ),
@@ -375,19 +374,19 @@ class _LoginScreenState extends State<LoginScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _FooterLink(label: context.translate('privacy_policy')),
+            _FooterLink(label: context.translate('privacy_policy'), tokens: tokens),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Container(
                 width: 3,
                 height: 3,
-                decoration: const BoxDecoration(
-                  color: _kTextHint,
+                decoration: BoxDecoration(
+                  color: tokens.textHint,
                   shape: BoxShape.circle,
                 ),
               ),
             ),
-            _FooterLink(label: context.translate('terms_of_service')),
+            _FooterLink(label: context.translate('terms_of_service'), tokens: tokens),
           ],
         ),
       ],
@@ -440,7 +439,8 @@ class _LoginScreenState extends State<LoginScreen>
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _LanguageSwitcher extends StatelessWidget {
-  const _LanguageSwitcher();
+  const _LanguageSwitcher({required this.tokens});
+  final AppThemeTokens tokens;
 
   @override
   Widget build(BuildContext context) {
@@ -449,30 +449,30 @@ class _LanguageSwitcher extends StatelessWidget {
 
     return Theme(
       data: Theme.of(context).copyWith(
-        cardColor: _kCard,
+        cardColor: tokens.cardBg,
       ),
       child: PopupMenuButton<Locale>(
         icon: Container(
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-            color: _kCard.withValues(alpha: 0.8),
+            color: tokens.cardBg.withValues(alpha: 0.8),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: _kBorder.withValues(alpha: 0.8),
+              color: tokens.divider.withValues(alpha: 0.8),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               )
             ],
           ),
-          child: const Icon(
+          child: Icon(
             Icons.language_rounded,
-            color: _kAccent,
+            color: tokens.mint,
             size: 20,
           ),
         ),
@@ -480,7 +480,7 @@ class _LanguageSwitcher extends StatelessWidget {
         offset: const Offset(0, 50),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: _kBorder, width: 1.5),
+          side: BorderSide(color: tokens.divider, width: 1.5),
         ),
         onSelected: (Locale locale) {
           HapticFeedback.mediumImpact();
@@ -504,14 +504,14 @@ class _LanguageSwitcher extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected ? _kAccent : _kTextPrime,
+                        color: isSelected ? tokens.mint : tokens.textPrimary,
                       ),
                     ),
                   ),
                   if (isSelected)
-                    const Icon(
+                    Icon(
                       Icons.check_rounded,
-                      color: _kAccent,
+                      color: tokens.mint,
                       size: 16,
                     ),
                 ],
@@ -529,6 +529,9 @@ class _LanguageSwitcher extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CardHeader extends StatelessWidget {
+  const _CardHeader({required this.tokens});
+  final AppThemeTokens tokens;
+
   @override
   Widget build(BuildContext context) {
     final (greeting, sub) = _copy(context);
@@ -541,10 +544,10 @@ class _CardHeader extends StatelessWidget {
             children: [
               Text(
                 greeting,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: _kTextPrime,
+                  color: tokens.textPrimary,
                   letterSpacing: -0.5,
                   height: 1.2,
                 ),
@@ -552,9 +555,9 @@ class _CardHeader extends StatelessWidget {
               const SizedBox(height: 5),
               Text(
                 sub,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: _kTextSecond,
+                  color: tokens.textSecondary,
                   height: 1.5,
                 ),
               ),
@@ -566,10 +569,10 @@ class _CardHeader extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: _kAccent.withValues(alpha: 0.12),
+            color: tokens.mint.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: _kAccent.withValues(alpha: 0.25),
+              color: tokens.mint.withValues(alpha: 0.25),
               width: 1,
             ),
           ),
@@ -579,16 +582,16 @@ class _CardHeader extends StatelessWidget {
               Container(
                 width: 6,
                 height: 6,
-                decoration: const BoxDecoration(
-                  color: _kAccent,
+                decoration: BoxDecoration(
+                  color: tokens.mint,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 5),
               Text(
                 context.translate('secure'),
-                style: const TextStyle(
-                  color: _kAccent,
+                style: TextStyle(
+                  color: tokens.mint,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.3,
@@ -639,7 +642,8 @@ class _CardHeader extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ValueProps extends StatelessWidget {
-  const _ValueProps();
+  const _ValueProps({required this.tokens});
+  final AppThemeTokens tokens;
 
   @override
   Widget build(BuildContext context) {
@@ -647,23 +651,26 @@ class _ValueProps extends StatelessWidget {
       children: [
         _ValuePropRow(
           icon: Icons.mic_none_rounded,
-          color: _kPrimary,
+          color: tokens.purple,
           title: context.translate('speak_voice'),
           subtitle: context.translate('speak_voice_sub'),
+          tokens: tokens,
         ),
         const SizedBox(height: 16),
         _ValuePropRow(
           icon: Icons.calendar_month_outlined,
-          color: _kAccent,
+          color: tokens.mint,
           title: context.translate('sync_gcal_title'),
           subtitle: context.translate('sync_gcal_sub'),
+          tokens: tokens,
         ),
         const SizedBox(height: 16),
         _ValuePropRow(
           icon: Icons.notifications_none_rounded,
-          color: _kGold,
+          color: tokens.yellow,
           title: context.translate('smart_reminders_title'),
           subtitle: context.translate('smart_reminders_sub'),
+          tokens: tokens,
         ),
       ],
     );
@@ -676,12 +683,14 @@ class _ValuePropRow extends StatelessWidget {
     required this.color,
     required this.title,
     required this.subtitle,
+    required this.tokens,
   });
 
   final IconData icon;
   final Color color;
   final String title;
   final String subtitle;
+  final AppThemeTokens tokens;
 
   @override
   Widget build(BuildContext context) {
@@ -708,19 +717,19 @@ class _ValuePropRow extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: _kTextPrime,
+                  color: tokens.textPrimary,
                   height: 1.3,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: _kTextSecond,
+                  color: tokens.textSecondary,
                   height: 1.5,
                 ),
               ),
@@ -737,22 +746,23 @@ class _ValuePropRow extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TrustBadge extends StatelessWidget {
-  const _TrustBadge({required this.icon, required this.label});
+  const _TrustBadge({required this.icon, required this.label, required this.tokens});
   final IconData icon;
   final String label;
+  final AppThemeTokens tokens;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12, color: _kTextHint),
+        Icon(icon, size: 12, color: tokens.textHint),
         const SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
-            color: _kTextHint,
+            color: tokens.textHint,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -766,8 +776,9 @@ class _TrustBadge extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FooterLink extends StatelessWidget {
-  const _FooterLink({required this.label});
+  const _FooterLink({required this.label, required this.tokens});
   final String label;
+  final AppThemeTokens tokens;
 
   @override
   Widget build(BuildContext context) {
@@ -782,12 +793,12 @@ class _FooterLink extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: Text(
             label,
-            style: const TextStyle(
-              color: _kTextHint,
+            style: TextStyle(
+              color: tokens.textHint,
               fontSize: 11,
               fontWeight: FontWeight.w500,
               decoration: TextDecoration.underline,
-              decorationColor: _kTextHint,
+              decorationColor: tokens.textHint,
             ),
           ),
         ),
@@ -801,9 +812,17 @@ class _FooterLink extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AnimatedOrbs extends StatelessWidget {
-  const _AnimatedOrbs({required this.floatAnim, required this.size});
+  const _AnimatedOrbs({
+    required this.floatAnim,
+    required this.size,
+    required this.tokens,
+    required this.isDark,
+  });
+
   final Animation<double> floatAnim;
   final Size size;
+  final AppThemeTokens tokens;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -811,25 +830,29 @@ class _AnimatedOrbs extends StatelessWidget {
       animation: floatAnim,
       builder: (_, __) {
         final t = floatAnim.value;
+        final primaryOpacity = isDark ? 0.13 : 0.08;
+        final accentOpacity = isDark ? 0.11 : 0.06;
+        final goldOpacity = isDark ? 0.07 : 0.04;
+
         return Stack(
           children: [
             Positioned(
               top: -120 + 20 * t,
               right: -80 + 10 * math.sin(t * math.pi),
-              child: _GlowOrb(size: 380, color: _kPrimary, opacity: 0.13),
+              child: _GlowOrb(size: 380, color: tokens.purple, opacity: primaryOpacity),
             ),
             Positioned(
               bottom: -80 - 15 * t,
               left: -100 + 10 * t,
-              child: _GlowOrb(size: 320, color: _kAccent, opacity: 0.11),
+              child: _GlowOrb(size: 320, color: tokens.mint, opacity: accentOpacity),
             ),
             Positioned(
               top: size.height * 0.38 + 20 * t,
               left: -60,
-              child: _GlowOrb(size: 200, color: _kGold, opacity: 0.07),
+              child: _GlowOrb(size: 200, color: tokens.yellow, opacity: goldOpacity),
             ),
             Positioned.fill(
-              child: CustomPaint(painter: _GridPainter()),
+              child: CustomPaint(painter: _GridPainter(tokens.divider)),
             ),
           ],
         );
@@ -870,21 +893,24 @@ class _GlowOrb extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _GridPainter extends CustomPainter {
+  final Color dividerColor;
+  _GridPainter(this.dividerColor);
+
   @override
   void paint(Canvas canvas, Size size) {
     const spacing = 32.0;
     final paint = Paint()
-      ..color = const Color(0xFF1E2440).withValues(alpha: 0.4)
+      ..color = dividerColor.withValues(alpha: 0.5)
       ..strokeWidth = 1;
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), 1, paint);
+        canvas.drawCircle(Offset(x, y), 0.75, paint);
       }
     }
   }
 
   @override
-  bool shouldRepaint(_GridPainter old) => false;
+  bool shouldRepaint(_GridPainter old) => old.dividerColor != dividerColor;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -914,8 +940,10 @@ class _NoisePainter extends CustomPainter {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _BackgroundWaves extends StatelessWidget {
-  const _BackgroundWaves({required this.floatAnim});
+  const _BackgroundWaves({required this.floatAnim, required this.tokens, required this.isDark});
   final Animation<double> floatAnim;
+  final AppThemeTokens tokens;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -923,7 +951,7 @@ class _BackgroundWaves extends StatelessWidget {
       animation: floatAnim,
       builder: (context, child) {
         return CustomPaint(
-          painter: _WavePainter(floatAnim.value),
+          painter: _WavePainter(floatAnim.value, tokens, isDark),
           size: Size.infinite,
         );
       },
@@ -933,13 +961,21 @@ class _BackgroundWaves extends StatelessWidget {
 
 class _WavePainter extends CustomPainter {
   final double animationValue;
-  _WavePainter(this.animationValue);
+  final AppThemeTokens tokens;
+  final bool isDark;
+  _WavePainter(this.animationValue, this.tokens, this.isDark);
 
   @override
   void paint(Canvas canvas, Size size) {
-    // We want thick, white, bold S-curves like the reference
+    final waveColor1 = isDark
+        ? Colors.white.withValues(alpha: 0.07)
+        : tokens.divider.withValues(alpha: 0.3);
+    final waveColor2 = isDark
+        ? Colors.white.withValues(alpha: 0.04)
+        : tokens.divider.withValues(alpha: 0.15);
+
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.07)
+      ..color = waveColor1
       ..style = PaintingStyle.stroke
       ..strokeWidth = 45 // Much thicker
       ..strokeCap = StrokeCap.round;
@@ -972,7 +1008,7 @@ class _WavePainter extends CustomPainter {
     
     // Bottom-right bundle
     final paint2 = Paint()
-      ..color = Colors.white.withValues(alpha: 0.04)
+      ..color = waveColor2
       ..style = PaintingStyle.stroke
       ..strokeWidth = 35
       ..strokeCap = StrokeCap.round;
@@ -1002,5 +1038,5 @@ class _WavePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_WavePainter oldDelegate) => 
-      oldDelegate.animationValue != animationValue;
+      oldDelegate.animationValue != animationValue || oldDelegate.isDark != isDark;
 }

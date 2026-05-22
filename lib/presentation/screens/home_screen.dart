@@ -34,8 +34,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   int _navIdx = 0;
   late final AnimationController _fabCtrl;
   late final Animation<double> _fabScale;
@@ -100,8 +99,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: tokens.background,
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -123,15 +123,18 @@ class _HomeScreenState extends State<HomeScreen>
                     onTap: (i) {
                       if (i == 2) {
                         HapticFeedback.mediumImpact();
-                        Navigator.push(context, _slideUp(const AddTaskScreen()));
+                        Navigator.push(
+                            context, _slideUp(const AddTaskScreen()));
                         return;
                       }
                       if (i == 1) {
-                        Navigator.push(context, _slideUp(const SummaryScreen()));
+                        Navigator.push(
+                            context, _slideUp(const SummaryScreen()));
                         return;
                       }
                       if (i == 4) {
-                        Navigator.push(context, _slideUp(const ProfileScreen()));
+                        Navigator.push(
+                            context, _slideUp(const ProfileScreen()));
                         return;
                       }
                       HapticFeedback.selectionClick();
@@ -224,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen>
                   badge: '${completed.length}',
                   action: context.translate('clear_all'),
                   onAction: () {},
-                  badgeColor: AppColors.mint,
+                  badgeColor: context.tokens.mint,
                 ),
                 const SizedBox(height: _kGap),
                 ...List.generate(completed.length, (i) {
@@ -265,6 +268,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _completeTask(TasksNotifier notifier, TaskModelHive task) {
+    final tokens = context.tokens;
     HapticFeedback.mediumImpact();
     notifier.toggleComplete(task.id);
     final currentTask = context.read<CurrentTaskNotifier>();
@@ -276,16 +280,17 @@ class _HomeScreenState extends State<HomeScreen>
       message: task.isCompleted
           ? context.translate('marked_pending_toast')
           : context.translate('task_completed_toast'),
-      color: task.isCompleted ? AppColors.purple : AppColors.mint,
+      color: task.isCompleted ? tokens.purple : tokens.mint,
       action: SnackBarAction(
         label: context.translate('undo'),
-        textColor: AppColors.textDark,
+        textColor: tokens.textDark,
         onPressed: () => notifier.toggleComplete(task.id),
       ),
     );
   }
 
   void _deleteTask(TasksNotifier notifier, TaskModelHive task) {
+    final tokens = context.tokens;
     HapticFeedback.heavyImpact();
     notifier.deleteTask(task);
     final currentTask = context.read<CurrentTaskNotifier>();
@@ -295,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen>
     _showSnackBar(
       icon: Icons.delete_rounded,
       message: '"${task.title}" ${context.translate('deleted_toast')}',
-      color: AppColors.error,
+      color: tokens.error,
     );
   }
 
@@ -340,10 +345,13 @@ class _HomeScreenState extends State<HomeScreen>
           final curved = CurvedAnimation(parent: a, curve: Curves.easeOutCubic);
           return FadeTransition(
             opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
-              CurvedAnimation(parent: a, curve: const Interval(0.0, 0.5, curve: Curves.easeOut)),
+              CurvedAnimation(
+                  parent: a,
+                  curve: const Interval(0.0, 0.5, curve: Curves.easeOut)),
             ),
             child: SlideTransition(
-              position: Tween(begin: const Offset(0, 0.3), end: Offset.zero).animate(curved),
+              position: Tween(begin: const Offset(0, 0.3), end: Offset.zero)
+                  .animate(curved),
               child: child,
             ),
           );
@@ -450,6 +458,7 @@ class _CurrentTaskMintCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final focusTask = currentTaskNotifier.currentTask ??
         (pendingTasks.isNotEmpty ? pendingTasks.first : null);
 
@@ -481,11 +490,11 @@ class _CurrentTaskMintCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.mint,
+        color: tokens.mint,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: AppColors.mint.withValues(alpha: 0.12),
+            color: tokens.mint.withValues(alpha: 0.12),
             blurRadius: 24,
             offset: const Offset(0, 12),
           ),
@@ -557,11 +566,11 @@ class _CurrentTaskMintCard extends StatelessWidget {
                                       ),
                                     ),
                                     child: sub.isCompleted
-                                        ? const Center(
+                                        ? Center(
                                             child: Icon(
                                               Icons.check_rounded,
                                               size: 11,
-                                              color: AppColors.mint,
+                                              color: tokens.mint,
                                             ),
                                           )
                                         : null,
@@ -875,6 +884,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final name = user?.userMetadata?['display_name'] as String? ?? 'User';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
 
@@ -882,15 +892,15 @@ class _TopBar extends StatelessWidget {
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: AppColors.cardBg.withValues(alpha: 0.6),
+        color: tokens.cardBg.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.divider.withValues(alpha: 0.5),
+          color: tokens.divider.withValues(alpha: 0.5),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
+            color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.light ? 0.05 : 0.25),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -908,14 +918,14 @@ class _TopBar extends StatelessWidget {
                 height: 52,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [AppColors.mint, AppColors.purple],
+                  gradient: LinearGradient(
+                    colors: [tokens.mint, tokens.purple],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.mint.withValues(alpha: 0.3),
+                      color: tokens.mint.withValues(alpha: 0.3),
                       blurRadius: 10,
                       spreadRadius: 1,
                     ),
@@ -924,14 +934,15 @@ class _TopBar extends StatelessWidget {
                 padding: const EdgeInsets.all(2.5),
                 child: CircleAvatar(
                   radius: 23,
-                  backgroundColor: AppColors.cardBg,
+                  backgroundColor: tokens.cardBg,
                   backgroundImage: user?.userMetadata?['avatar_url'] != null
-                      ? NetworkImage(user!.userMetadata!['avatar_url'] as String)
+                      ? NetworkImage(
+                          user!.userMetadata!['avatar_url'] as String)
                       : null,
                   child: user?.userMetadata?['avatar_url'] == null
                       ? Text(initial,
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppColors.textPrimary,
+                            color: tokens.textPrimary,
                             fontWeight: FontWeight.w800,
                             fontSize: 18,
                           ))
@@ -949,7 +960,7 @@ class _TopBar extends StatelessWidget {
                     Text(
                       context.translate('welcome_back'),
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppColors.textSecondary,
+                        color: tokens.textSecondary,
                         fontSize: 12,
                         fontWeight: FontWeight.w300,
                       ),
@@ -958,7 +969,7 @@ class _TopBar extends StatelessWidget {
                     Text(
                       name,
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppColors.textPrimary,
+                        color: tokens.textPrimary,
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
@@ -979,42 +990,45 @@ class _TopBar extends StatelessWidget {
                     SnackBar(
                       content: Row(
                         children: [
-                          const Icon(Icons.check_circle_rounded, color: AppColors.mint, size: 20),
+                          Icon(Icons.check_circle_rounded,
+                              color: tokens.mint, size: 20),
                           const SizedBox(width: 8),
                           Text(
                             'Synced with Google Calendar',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppColors.textPrimary,
+                              color: tokens.textPrimary,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
                       behavior: SnackBarBehavior.floating,
-                      backgroundColor: AppColors.cardBg,
+                      backgroundColor: tokens.cardBg,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: AppColors.divider.withValues(alpha: 0.5)),
+                        side: BorderSide(
+                            color: tokens.divider.withValues(alpha: 0.5)),
                       ),
                     ),
                   );
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.mint.withValues(alpha: 0.08),
+                    color: tokens.mint.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppColors.mint.withValues(alpha: 0.25),
+                      color: tokens.mint.withValues(alpha: 0.25),
                       width: 1,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.calendar_today_rounded,
-                        color: AppColors.mint,
+                        color: tokens.mint,
                         size: 14,
                       ),
                       const SizedBox(width: 6),
@@ -1022,12 +1036,12 @@ class _TopBar extends StatelessWidget {
                       Container(
                         width: 6,
                         height: 6,
-                        decoration: const BoxDecoration(
-                          color: AppColors.mint,
+                        decoration: BoxDecoration(
+                          color: tokens.mint,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.mint,
+                              color: tokens.mint,
                               blurRadius: 4,
                               spreadRadius: 1,
                             ),
@@ -1054,6 +1068,7 @@ class _WeekNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final now = DateTime.now();
     final locale = Localizations.localeOf(context).languageCode;
     final day = DateFormat('EEEE, MMMM d', locale).format(now);
@@ -1064,12 +1079,12 @@ class _WeekNav extends StatelessWidget {
         Column(
           children: [
             Text(day,
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                style: TextStyle(color: tokens.textSecondary, fontSize: 12)),
             const SizedBox(height: 2),
             Text(context.translate('this_week'),
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
+                style: TextStyle(
+                  color: tokens.textPrimary,
+                  fontSize: 25,
                   fontWeight: FontWeight.w700,
                 )),
           ],
@@ -1085,19 +1100,22 @@ class _ChevronBtn extends StatelessWidget {
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: () {},
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: AppColors.cardBg,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.divider),
-          ),
-          child: Icon(icon, color: AppColors.textPrimary, size: 20),
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return GestureDetector(
+      onTap: () {},
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: tokens.cardBg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: tokens.divider),
         ),
-      );
+        child: Icon(icon, color: tokens.textPrimary, size: 20),
+      ),
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1116,39 +1134,42 @@ class _SectionHeader extends StatelessWidget {
   final Color? badgeColor;
 
   @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          Text(title,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16,
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Row(
+      children: [
+        Text(title,
+            style: TextStyle(
+              color: tokens.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            )),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: (badgeColor ?? tokens.purple).withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(badge,
+              style: TextStyle(
+                color: badgeColor ?? tokens.purple,
+                fontSize: 11,
                 fontWeight: FontWeight.w700,
               )),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: (badgeColor ?? AppColors.purple).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(badge,
-                style: TextStyle(
-                  color: badgeColor ?? AppColors.purple,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                )),
-          ),
-          const Spacer(),
-          GestureDetector(
-            onTap: onAction,
-            child: Text(action,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                )),
-          ),
-        ],
-      );
+        ),
+        const Spacer(),
+        GestureDetector(
+          onTap: onAction,
+          child: Text(action,
+              style: TextStyle(
+                color: tokens.textSecondary,
+                fontSize: 13,
+              )),
+        ),
+      ],
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1199,6 +1220,7 @@ class _EmptyStateState extends State<_EmptyState>
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return FadeTransition(
       opacity: _fadeAnim,
       child: Padding(
@@ -1211,26 +1233,26 @@ class _EmptyStateState extends State<_EmptyState>
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: AppColors.cardBg,
+                  color: tokens.cardBg,
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.divider, width: 1.5),
+                  border: Border.all(color: tokens.divider, width: 1.5),
                 ),
-                child: const Icon(Icons.task_alt_rounded,
-                    size: 36, color: AppColors.textHint),
+                child: Icon(Icons.task_alt_rounded,
+                    size: 36, color: tokens.textHint),
               ),
             ),
             const SizedBox(height: 20),
             Text(context.translate('all_clear'),
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: tokens.textPrimary,
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                 )),
             const SizedBox(height: 8),
             Text(context.translate('empty_state_subtitle'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
+                style: TextStyle(
+                  color: tokens.textSecondary,
                   fontSize: 14,
                   height: 1.5,
                 )),
@@ -1238,15 +1260,16 @@ class _EmptyStateState extends State<_EmptyState>
             GestureDetector(
               onTap: widget.onAdd,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.mint, Color(0xFF2BBDAE)],
+                  gradient: LinearGradient(
+                    colors: [tokens.mint, Theme.of(context).brightness == Brightness.light ? const Color(0xFF23A196) : const Color(0xFF2BBDAE)],
                   ),
                   borderRadius: BorderRadius.circular(30),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.mint.withValues(alpha: 0.3),
+                      color: tokens.mint.withValues(alpha: 0.3),
                       blurRadius: 16,
                       offset: const Offset(0, 6),
                     ),
@@ -1255,12 +1278,12 @@ class _EmptyStateState extends State<_EmptyState>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.add_rounded,
-                        color: AppColors.textDark, size: 18),
+                    Icon(Icons.add_rounded,
+                        color: tokens.textDark, size: 18),
                     const SizedBox(width: 6),
                     Text(context.translate('add_first_task'),
-                        style: const TextStyle(
-                          color: AppColors.textDark,
+                        style: TextStyle(
+                          color: tokens.textDark,
                           fontWeight: FontWeight.w800,
                           fontSize: 14,
                         )),
@@ -1292,6 +1315,7 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final bottomPad = MediaQuery.of(context).padding.bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPad + 20),
@@ -1306,15 +1330,15 @@ class _BottomNav extends StatelessWidget {
                 child: Container(
                   height: 64,
                   decoration: BoxDecoration(
-                    color: AppColors.cardBg.withValues(alpha: 0.7),
+                    color: tokens.cardBg.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(32),
                     border: Border.all(
-                      color: AppColors.divider.withValues(alpha: 0.5),
+                      color: tokens.divider.withValues(alpha: 0.5),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
+                        color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.light ? 0.08 : 0.3),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -1366,23 +1390,23 @@ class _BottomNav extends StatelessWidget {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: AppColors.cardBg.withValues(alpha: 0.7),
+                      color: tokens.cardBg.withValues(alpha: 0.7),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppColors.divider.withValues(alpha: 0.5),
+                        color: tokens.divider.withValues(alpha: 0.5),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
+                          color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.light ? 0.08 : 0.3),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.add_rounded,
-                      color: AppColors.mint,
+                      color: tokens.mint,
                       size: 32,
                     ),
                   ),
@@ -1410,6 +1434,7 @@ class _PillNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -1422,7 +1447,7 @@ class _PillNavItem extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: active
-              ? AppColors.mint.withValues(alpha: 0.15)
+              ? tokens.mint.withValues(alpha: 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),
@@ -1432,14 +1457,14 @@ class _PillNavItem extends StatelessWidget {
             Icon(
               icon,
               size: 22,
-              color: active ? AppColors.mint : AppColors.textSecondary,
+              color: active ? tokens.mint : tokens.textSecondary,
             ),
             if (active) ...[
               const SizedBox(width: 8),
               Text(
                 label,
-                style: const TextStyle(
-                  color: AppColors.mint,
+                style: TextStyle(
+                  color: tokens.mint,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.2,

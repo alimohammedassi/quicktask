@@ -8,6 +8,7 @@ class DatabaseService {
   static const String _usersBox = 'users';
   static const String _tasksBox = 'tasks';
   static const String _prefsBox = 'prefs';
+  static const String _settingsBox = 'settings';
 
   static Future<void> init() async {
     await Hive.initFlutter();
@@ -20,12 +21,14 @@ class DatabaseService {
     await Hive.openBox<UserModel>(_usersBox);
     await Hive.openBox<TaskModelHive>(_tasksBox);
     await Hive.openBox<String>(_prefsBox);
+    await Hive.openBox(_settingsBox);
     await SubtaskRepository.init();
   }
 
   static Box<UserModel> get usersBox => Hive.box<UserModel>(_usersBox);
   static Box<TaskModelHive> get tasksBox => Hive.box<TaskModelHive>(_tasksBox);
   static Box<String> get prefsBox => Hive.box<String>(_prefsBox);
+  static Box get settingsBox => Hive.box(_settingsBox);
 
   // ── Current task preference ─────────────────────────────────
   static String? get currentTaskId => prefsBox.get('currentTaskId');

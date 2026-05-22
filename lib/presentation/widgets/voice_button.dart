@@ -101,6 +101,7 @@ class _VoiceButtonState extends State<VoiceButton>
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final double buttonSize = widget.isCompact ? 40.0 : 72.0;
     final double pulseSize = widget.isCompact ? 48.0 : 72.0;
     final double iconSize = widget.isCompact ? 20.0 : 32.0;
@@ -128,7 +129,7 @@ class _VoiceButtonState extends State<VoiceButton>
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.3),
+                          color: tokens.purple.withValues(alpha: 0.3),
                           width: widget.isCompact ? 2 : 3,
                         ),
                       ),
@@ -142,22 +143,22 @@ class _VoiceButtonState extends State<VoiceButton>
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: _isListening
-                            ? AppColors.error
+                            ? tokens.error
                             : _isPrompting
-                                ? AppColors.accent
-                                : AppColors.primary,
+                                ? tokens.mint
+                                : tokens.purple,
                         gradient: _isListening || _isPrompting
                             ? null
-                            : const LinearGradient(
-                                colors: [AppColors.primary, AppColors.primaryLight],
+                            : LinearGradient(
+                                colors: [tokens.purple, tokens.mint],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                         boxShadow: [
                           BoxShadow(
                             color: (_isListening
-                                    ? AppColors.error
-                                    : AppColors.primary)
+                                    ? tokens.error
+                                    : tokens.purple)
                                 .withValues(alpha: 0.5),
                             blurRadius: _isListening ? (widget.isCompact ? 12 : 28) : (widget.isCompact ? 6 : 12),
                             spreadRadius: _isListening ? (widget.isCompact ? 2 : 6) : (widget.isCompact ? 1 : 2),
@@ -190,8 +191,8 @@ class _VoiceButtonState extends State<VoiceButton>
                 duration: const Duration(milliseconds: 300),
                 child: Text(
                   _statusText,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: tokens.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -202,13 +203,13 @@ class _VoiceButtonState extends State<VoiceButton>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
+                    color: tokens.purple.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     _currentLocale == TtsLocale.arabic ? 'EN' : 'ع',
-                    style: const TextStyle(
-                      color: AppColors.primary,
+                    style: TextStyle(
+                      color: tokens.purple,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                     ),

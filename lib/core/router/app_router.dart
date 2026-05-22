@@ -12,6 +12,8 @@ import '../../presentation/screens/main_shell_screen.dart';
 import '../../presentation/screens/summary_screen.dart';
 import '../../presentation/screens/profile_screen.dart';
 import '../../presentation/screens/add_task_screen.dart';
+import '../../presentation/screens/onboarding_screen.dart';
+import '../../core/database/database_service.dart';
 
 // ─── Auth Guard Wrapper ───────────────────────────────────────────────────────
 
@@ -43,14 +45,18 @@ GoRouter createAppRouter(AuthNotifier authNotifier) {
     debugLogDiagnostics: false,
     refreshListenable: authNotifier,
     redirect: (context, state) {
-      // Never redirect away from splash – it handles navigation itself
-
       final user = context.read<User?>();
       final isLoggingIn =
           state.uri.path == '/login' || state.uri.path == '/register';
+      final isOnboarding = state.uri.path == '/onboarding';
 
       if (user != null) {
-        return isLoggingIn ? '/home' : null;
+        final onboardingDone = DatabaseService.settingsBox.get('onboarding_done', defaultValue: false) == true;
+        if (!onboardingDone) {
+          return isOnboarding ? null : '/onboarding';
+        } else {
+          return (isLoggingIn || isOnboarding) ? '/home' : null;
+        }
       }
       return isLoggingIn ? null : '/login';
     },
@@ -62,6 +68,10 @@ GoRouter createAppRouter(AuthNotifier authNotifier) {
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
         path: '/add-task',

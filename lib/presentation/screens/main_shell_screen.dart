@@ -80,7 +80,7 @@ class _MainShellScreenState extends State<MainShellScreen>
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.tokens.background,
       body: Stack(
         children: [
           widget.navigationShell,
@@ -113,6 +113,7 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final bottomPad = MediaQuery.of(context).padding.bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPad + 20),
@@ -126,10 +127,10 @@ class _BottomNav extends StatelessWidget {
                 child: Container(
                   height: 64,
                   decoration: BoxDecoration(
-                    color: AppColors.cardBg.withValues(alpha: 0.7),
+                    color: tokens.cardBg.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(32),
                     border: Border.all(
-                      color: AppColors.divider.withValues(alpha: 0.5),
+                      color: tokens.divider.withValues(alpha: 0.5),
                       width: 1.5,
                     ),
                     boxShadow: [
@@ -185,10 +186,10 @@ class _BottomNav extends StatelessWidget {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: AppColors.cardBg.withValues(alpha: 0.7),
+                      color: tokens.cardBg.withValues(alpha: 0.7),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppColors.divider.withValues(alpha: 0.5),
+                        color: tokens.divider.withValues(alpha: 0.5),
                         width: 1.5,
                       ),
                       boxShadow: [
@@ -199,9 +200,9 @@ class _BottomNav extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.add_rounded,
-                      color: AppColors.mint,
+                      color: tokens.mint,
                       size: 32,
                     ),
                   ),
@@ -229,6 +230,7 @@ class _PillNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -240,7 +242,7 @@ class _PillNavItem extends StatelessWidget {
           vertical: 10,
         ),
         decoration: BoxDecoration(
-          color: active ? AppColors.mint.withValues(alpha: 0.15) : Colors.transparent,
+          color: active ? tokens.mint.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Row(
@@ -249,14 +251,14 @@ class _PillNavItem extends StatelessWidget {
             Icon(
               icon,
               size: 22,
-              color: active ? AppColors.mint : AppColors.textSecondary,
+              color: active ? tokens.mint : tokens.textSecondary,
             ),
             if (active) ...[
               const SizedBox(width: 8),
               Text(
                 label,
-                style: const TextStyle(
-                  color: AppColors.mint,
+                style: TextStyle(
+                  color: tokens.mint,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.2,
